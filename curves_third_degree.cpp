@@ -2,42 +2,7 @@
 
 class ThirdDegreeCurve
 {
-	public:
-	static int Round(double x)
-	{
-		return (int)(x + 0.5);
-	}
-	// Interpolate colors
-    static COLORREF interpolateColors(COLORREF c1, COLORREF c2, double t)
-    {
-    	int r = Round(GetRValue(c1) * t + (1 - t) * GetRValue(c2));
-    	int g = Round(GetGValue(c1) * t + (1 - t) * GetGValue(c2));
-    	int b = Round(GetBValue(c1) * t + (1 - t) * GetBValue(c2));
-    	return RGB(r, g, b);
-    }
-
-	// Matrix multiplication for hermite and bezier
-	static vector<int> matrixMult(vector<vector<int>> m1, vector<int> m2)
-	{
-		int rows = m1.size();
-		int shared = m1[0].size(); // should be equal to m2.size()
-		int cols = m2.size();
-
-		vector<int> result(rows, 0);
-
-		for (int i = 0; i < rows; ++i)
-		{
-			// for (int k = 0; k < cols; ++k) {
-			for (int j = 0; j < shared; ++j)
-			{
-				result[i] += m1[i][j] * m2[j];
-			}
-			//}
-		}
-
-		return result;
-	}
-
+public:
 	// Hermite algorithm
 	static void
 	HermiteCurve(HDC hdc, int x1, int y1, int u1, int v1, int x2, int y2, int u2, int v2, COLORREF c1, COLORREF c2)
@@ -52,16 +17,16 @@ class ThirdDegreeCurve
 		vector<int> Gy = {y1, y2, v1, v2}; // 4x1
 
 		// Multiply H (4x4) * Gx/Gy (4x1) => 4x1
-		vector<int> Cx = matrixMult(H, Gx);
-		vector<int> Cy = matrixMult(H, Gy);
+		vector<int> Cx = Common::matrixMult(H, Gx);
+		vector<int> Cy = Common::matrixMult(H, Gy);
 
 		for (double t = 0; t <= 1.0; t += 0.0001)
 		{
 			double t2 = t * t;
 			double t3 = t2 * t;
-			int x = Round(Cx[0] * t3 + Cx[1] * t2 + Cx[2] * t + Cx[3]);
-			int y = Round(Cy[0] * t3 + Cy[1] * t2 + Cy[2] * t + Cy[3]);
-			COLORREF c = interpolateColors(c1, c2, t);
+			int x = Common::Round(Cx[0] * t3 + Cx[1] * t2 + Cx[2] * t + Cx[3]);
+			int y = Common::Round(Cy[0] * t3 + Cy[1] * t2 + Cy[2] * t + Cy[3]);
+			COLORREF c = Common::interpolateColors(c1, c2, t);
 			SetPixel(hdc, x, y, c);
 		}
 	}
@@ -84,16 +49,16 @@ class ThirdDegreeCurve
 		vector<int> Gy = {y1, y2, y3, y4}; // 4x1
 
 		// Multiply H (4x4) * Gx/Gy (4x1) => 4x1
-		vector<int> Cx = matrixMult(H, Gx);
-		vector<int> Cy = matrixMult(H, Gy);
+		vector<int> Cx = Common::matrixMult(H, Gx);
+		vector<int> Cy = Common::matrixMult(H, Gy);
 
 		for (double t = 0; t <= 1.0; t += 0.0001)
 		{
 			double t2 = t * t;
 			double t3 = t2 * t;
-			int x = Round(Cx[0] * t3 + Cx[1] * t2 + Cx[2] * t + Cx[3]);
-			int y = Round(Cy[0] * t3 + Cy[1] * t2 + Cy[2] * t + Cy[3]);
-			COLORREF c = interpolateColors(c1, c2, t);
+			int x = Common::Round(Cx[0] * t3 + Cx[1] * t2 + Cx[2] * t + Cx[3]);
+			int y = Common::Round(Cy[0] * t3 + Cy[1] * t2 + Cy[2] * t + Cy[3]);
+			COLORREF c = Common::interpolateColors(c1, c2, t);
 			SetPixel(hdc, x, y, interpolate ? c : c1);
 		}
 	}
@@ -127,7 +92,7 @@ class ThirdDegreeCurve
 		for (double t = 0; t < 1; t += 0.00005)
 		{
 			vector<double> point = Bezier(points, t);
-			SetPixel(hdc, point[0], point[1], interpolateColors(c1, c2, t));
+			SetPixel(hdc, point[0], point[1], Common::interpolateColors(c1, c2, t));
 		}
 	}
 };

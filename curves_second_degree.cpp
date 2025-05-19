@@ -1,9 +1,7 @@
-// #include <windows.h>
-
 #include "import.h"
+
 class SecondDegreeCurve
 {
-public:
     static int Round(double x)
     {
         return (int)(x + 0.5);
@@ -26,6 +24,8 @@ public:
         int b = Round(GetBValue(c1) * t + (1 - t) * GetBValue(c2));
         return RGB(r, g, b);
     }
+
+public:
     // Draw circle using the Rounding algorithm
     static void DrawCircle(HDC hdc, int xc, int yc, int x2, int y2, COLORREF c)
     {
