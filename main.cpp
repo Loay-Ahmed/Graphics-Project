@@ -1,4 +1,4 @@
-#include "import.h"
+#include "common.cpp"
 #include "filling.cpp"
 #include "curves_third_degree.cpp"
 #include "curves_second_degree.cpp"
@@ -66,7 +66,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// Lines::DrawLineByMidPoint(hdc, x1, y1, x2, y2, c1);
 		// Lines::InterpolatedColoredLine(hdc, x1, y1, x2, y2, c1, c2);
 		// ThirdDegreeCurve::HermiteCurve(hdc, x1, y1, x1 + 20, y1 - 20, x2, y2, x2 + 20, y2 - 20, c1, c2);
-		// Lines::LineBresenham(hdc, x1, y1, x2, y2, c1);
+		// Lines::LineBresenhamDDA(hdc, x1, y1, x2, y2, c1);
 		// ReleaseDC(hWnd, hdc);
 		// TasksAndAssignments::pizzaCircle(hdc, x1, y1, r, c1);
 		break;

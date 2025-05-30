@@ -2,10 +2,7 @@
 
 class SecondDegreeCurve
 {
-    static int Round(double x)
-    {
-        return (int)(x + 0.5);
-    }
+private:
     // Draw 8 points of the circle
     static void Draw8Points(HDC hdc, int xc, int yc, int x, int y, COLORREF c)
     {
@@ -16,24 +13,16 @@ class SecondDegreeCurve
             SetPixel(hdc, xc + dx[i], yc + dy[i], c);
         }
     }
-    // Interpolate colors
-    static COLORREF interpolateColors(COLORREF c1, COLORREF c2, double t)
-    {
-        int r = Round(GetRValue(c1) * t + (1 - t) * GetRValue(c2));
-        int g = Round(GetGValue(c1) * t + (1 - t) * GetGValue(c2));
-        int b = Round(GetBValue(c1) * t + (1 - t) * GetBValue(c2));
-        return RGB(r, g, b);
-    }
 
 public:
-    // Draw circle using the Rounding algorithm
+    // Draw circle using the Common::Rounding algorithm
     static void DrawCircle(HDC hdc, int xc, int yc, int x2, int y2, COLORREF c)
     {
-        int r = Round(sqrt(abs((xc - x2) * (xc - x2) + (yc - y2) * (yc - y2))));
+        int r = Common::Round(sqrt(abs((xc - x2) * (xc - x2) + (yc - y2) * (yc - y2))));
         for (int i = xc; i <= xc + r; i++)
         {
             int x = xc - i;
-            int y = Round(sqrt(r * r - x * x));
+            int y = Common::Round(sqrt(r * r - x * x));
             Draw8Points(hdc, xc, yc, x, y, c);
         }
     }
@@ -45,7 +34,7 @@ public:
         Draw8Points(hdc, xc, yc, x2, y2, c);
         while (x2 < y2)
         {
-            int d = Round(pow(x2 + 1, 2) + pow(y2 - 0.5, 2) - pow(r, 2));
+            int d = Common::Round(pow(x2 + 1, 2) + pow(y2 - 0.5, 2) - pow(r, 2));
             x2++;
             if (d > 0)
             {
@@ -70,8 +59,8 @@ public:
         for (double t = 0; t <= 1; t += steps)
         {
             std::cout << "in for\n";
-            COLORREF c = interpolateColors(c1, c2, t);
-            SetPixel(hdc, Round(alphaX * t * t + betaX * t + x1), Round(alphaY * t * t + betaY * t + y1), c);
+            COLORREF c = Common::interpolateColors(c1, c2, t);
+            SetPixel(hdc, Common::Round(alphaX * t * t + betaX * t + x1), Common::Round(alphaY * t * t + betaY * t + y1), c);
         }
     }
 };
