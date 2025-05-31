@@ -4,7 +4,7 @@ class Lines
 {
 
 public:
-    void InterpolatedColoredLine(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c1, COLORREF c2)
+    static void InterpolatedColoredLine(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c1, COLORREF c2)
     {
         int dx = x2 - x1;
         int dy = y2 - y1;
@@ -18,7 +18,7 @@ public:
     }
 
     // Line Bresenham using midpoint algo
-    void LineBresenhamDDA(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
+    static void LineBresenhamDDA(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
     {
         int dx = abs(x2 - x1);
         int dy = abs(y2 - y1);
@@ -76,7 +76,7 @@ public:
     }
 
     // Draws line by midpoint as binary search algorithm
-    void DrawLineByMidPoint(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
+    static void DrawLineByMidPoint(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
     {
         SetPixel(hdc, x1, y1, c);
         SetPixel(hdc, x2, y2, c);

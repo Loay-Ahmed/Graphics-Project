@@ -4,7 +4,7 @@ class Filling
 {
 
 public:
-	void RecFloodFill(HDC hdc, int x, int y, COLORREF c)
+	static void RecFloodFill(HDC hdc, int x, int y, COLORREF c)
 	{
 		COLORREF p = GetPixel(hdc, x, y);
 
@@ -24,7 +24,7 @@ public:
 		point(int x, int y) : x(x), y(y) {}
 	};
 
-	void NonRecFloodFill(HDC hdc, int x, int y, COLORREF c)
+	static void NonRecFloodFill(HDC hdc, int x, int y, COLORREF c)
 	{
 		static int dx[4] = {1, -1, 0, 0};
 		static int dy[4] = {0, 0, 1, -1};
@@ -45,7 +45,7 @@ public:
 		}
 	}
 
-	void BaryCentric(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, COLORREF c)
+	static void BaryCentric(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, COLORREF c)
 	{
 
 		for (double t1 = 0; t1 < 1; t1 += 0.001)
