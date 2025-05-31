@@ -4,6 +4,9 @@
 #include "curves_second_degree.cpp"
 #include "lines.cpp"
 #include "tasks_and_assignments.cpp"
+#include <codecvt>
+#include <string>
+
 using namespace std;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -103,21 +106,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+std::wstring UTF8ToUTF16(const std::string& utf8) {
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    return converter.from_bytes(utf8);
+}
+const std::string utf8Title = "بروجكت التلوين";
 int APIENTRY WinMain(HINSTANCE hi, HINSTANCE pi, LPSTR cmd, int nsh)
 {
+	SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, L"en-US", nullptr) &&
+           SetThreadPreferredUILanguages(MUI_LANGUAGE_NAME, L"en-US", nullptr);
 	WNDCLASS wc;
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
-	wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
+	wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hIcon = LoadIcon(NULL, IDI_WINLOGO);
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	wc.lpszClassName = "MyClass";
 	wc.lpszMenuName = NULL;
 	wc.lpfnWndProc = WndProc;
 	wc.style = CS_HREDRAW | CS_VREDRAW;
 	wc.hInstance = hi;
 	RegisterClass(&wc);
-	HWND hwnd = CreateWindow("MyClass", "Hello World!", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hi, 0);
+	HWND hwnd = CreateWindowW(L"MyClass", UTF8ToUTF16(utf8Title).c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hi, 0);
 	ShowWindow(hwnd, nsh);
 	UpdateWindow(hwnd);
 	MSG msg;

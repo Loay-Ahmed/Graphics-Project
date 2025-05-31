@@ -37,4 +37,4 @@ public:
 
         return result;
     }
-}
+};

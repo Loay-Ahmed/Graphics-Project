@@ -10,15 +10,15 @@ public:
         int x = 0, y = r;
 
         // Draw line vertical and horizontal
-        Lines::LineBresenham(hdc, xc - r, yc, xc + r, yc, c);
-        Lines::LineBresenham(hdc, xc, yc - r, xc, yc + r, c);
+        Lines::LineBresenhamDDA(hdc, xc - r, yc, xc + r, yc, c);
+        Lines::LineBresenhamDDA(hdc, xc, yc - r, xc, yc + r, c);
 
         // Draw circle by bresenham
         pair<int, int> point = SecondDegreeCurve::BresenhamCircle(hdc, xc, yc, r, c);
         x = point.first, y = point.second;
 
-        Lines::LineBresenham(hdc, xc - x, yc - y, xc + x, yc + y, c);
-        Lines::LineBresenham(hdc, xc + x, yc - y, xc - x, yc + y, c);
+        Lines::LineBresenhamDDA(hdc, xc - x, yc - y, xc + x, yc + y, c);
+        Lines::LineBresenhamDDA(hdc, xc + x, yc - y, xc - x, yc + y, c);
     }
 
     static void BezierInterpolatedCurve(HDC hdc, int x1, int y1, COLORREF c1, int x2, int y2, COLORREF c2, int x3, int y3, COLORREF c3, int x4, int y4, COLORREF c4)
