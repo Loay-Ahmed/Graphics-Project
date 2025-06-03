@@ -30,3 +30,10 @@
 *.exe
 *.out
 *.app
+
+# windows:
+*/Oracle_JDK-24/
+/Oracle_JDK-24/ 
+/.vscode/
+/vs/
+
