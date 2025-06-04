@@ -66,6 +66,13 @@ struct point
 };
 typedef std::list<int> edgetable[800]; // Linked list for x-coordinates per scanline
 
+void init(edgetable tbl)
+{
+    for (int i = 0; i < 800; i++)
+    {
+        tbl[i].clear();
+    }
+}
 
 
 //for convex
