@@ -58,6 +58,15 @@ public:
 			}
 		}
 	}
+//for non_convex
+struct point
+{
+    double x, y;
+    point() : x(0), y(0) {}
+};
+typedef std::list<int> edgetable[800]; // Linked list for x-coordinates per scanline
+
+
 
 //for convex
 typedef struct Entrytable {
