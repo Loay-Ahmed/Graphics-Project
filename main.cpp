@@ -1,13 +1,10 @@
-#include "import.h"
+#include "common.cpp"
 #include "filling.cpp"
 #include "curves_third_degree.cpp"
 #include "curves_second_degree.cpp"
 #include "lines.cpp"
 #include "tasks_and_assignments.cpp"
 using namespace std;
-
-ThirdDegreeCurve third;
-Filling filling;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -40,11 +37,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (counter == 4)
 		{ // adjust counter for number of points
 
-			// SecondDegreeCurve.InterpolatedColoredCurve(hdc, points[0], points[1], points[2], points[3], points[4], points[5], c1, c2);
-			third.BezierCurve(hdc, points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7], c1, c2, false);
-			// third.BezierInterpolatedCurve(hdc, points[0], points[1], RGB(255, 0, 0), points[2], points[3], RGB(255, 255, 0), points[4], points[5], RGB(0, 255, 0), points[6], points[7], RGB(0, 0, 255));
-			// third.RecBezier(hdc, points, c1, c2);
-			// filling.BaryCentric(hdc, points[0], points[1], points[2], points[3], points[4], points[5], c2);
+			// SecondDegreeCurve::InterpolatedColoredCurve(hdc, points[0], points[1], points[2], points[3], points[4], points[5], c1, c2);
+			ThirdDegreeCurve::BezierCurve(hdc, points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7], c1, c2, false);
+			// ThirdDegreeCurve::BezierInterpolatedCurve(hdc, points[0], points[1], RGB(255, 0, 0), points[2], points[3], RGB(255, 255, 0), points[4], points[5], RGB(0, 255, 0), points[6], points[7], RGB(0, 0, 255));
+			// ThirdDegreeCurve::RecBezier(hdc, points, c1, c2);
+			// Filling::BaryCentric(hdc, points[0], points[1], points[2], points[3], points[4], points[5], c2);
 			// use this for [ InterpolatedColoredCurve, BezierCurve, RecBezier ]
 			points.clear();
 			counter = 0;
@@ -65,13 +62,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// COLORREF c2 = RGB(108, 200, 255);
 
 		// int r = Round(sqrt(abs((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))));
-		// second.BresenhamCircle(hdc, xc, yc, r, c);
-		// lines.DrawLineByMidPoint(hdc, x1, y1, x2, y2, c1);
-		// lines.InterpolatedColoredLine(hdc, x1, y1, x2, y2, c1, c2);
-		// third.HermiteCurve(hdc, x1, y1, x1 + 20, y1 - 20, x2, y2, x2 + 20, y2 - 20, c1, c2);
-		// lines.LineBresenham(hdc, x1, y1, x2, y2, c1);
+		// SecondDegreeCurve::BresenhamCircle(hdc, xc, yc, r, c);
+		// Lines::DrawLineByMidPoint(hdc, x1, y1, x2, y2, c1);
+		// Lines::InterpolatedColoredLine(hdc, x1, y1, x2, y2, c1, c2);
+		// ThirdDegreeCurve::HermiteCurve(hdc, x1, y1, x1 + 20, y1 - 20, x2, y2, x2 + 20, y2 - 20, c1, c2);
+		// Lines::LineBresenhamDDA(hdc, x1, y1, x2, y2, c1);
 		// ReleaseDC(hWnd, hdc);
-		// tasks.pizzaCircle(hdc, x1, y1, r, c1);
+		// TasksAndAssignments::pizzaCircle(hdc, x1, y1, r, c1);
 		break;
 	}
 	case WM_RBUTTONDOWN:
@@ -80,7 +77,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		x2 = LOWORD(lParam);
 		y2 = HIWORD(lParam);
 		COLORREF c2 = RGB(50, 100, 0);
-		filling.NonRecFloodFill(hdc, x2, y2, c2);
+		Filling::NonRecFloodFill(hdc, x2, y2, c2);
 		ReleaseDC(hWnd, hdc);
 		break;
 	}

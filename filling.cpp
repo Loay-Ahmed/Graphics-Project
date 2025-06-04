@@ -2,20 +2,9 @@
 
 class Filling
 {
-	public:
-	static int Round(double x)
-	{
-		return (int)(x + 0.5);
-	}
-	// Interpolate colors
-    static COLORREF interpolateColors(COLORREF c1, COLORREF c2, double t)
-    {
-    	int r = Round(GetRValue(c1) * t + (1 - t) * GetRValue(c2));
-    	int g = Round(GetGValue(c1) * t + (1 - t) * GetGValue(c2));
-    	int b = Round(GetBValue(c1) * t + (1 - t) * GetBValue(c2));
-    	return RGB(r, g, b);
-    }
-	void RecFloodFill(HDC hdc, int x, int y, COLORREF c)
+
+public:
+	static void RecFloodFill(HDC hdc, int x, int y, COLORREF c)
 	{
 		COLORREF p = GetPixel(hdc, x, y);
 
@@ -35,7 +24,7 @@ class Filling
 		point(int x, int y) : x(x), y(y) {}
 	};
 
-	void NonRecFloodFill(HDC hdc, int x, int y, COLORREF c)
+	static void NonRecFloodFill(HDC hdc, int x, int y, COLORREF c)
 	{
 		static int dx[4] = {1, -1, 0, 0};
 		static int dy[4] = {0, 0, 1, -1};
@@ -56,15 +45,15 @@ class Filling
 		}
 	}
 
-	void BaryCentric(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, COLORREF c)
+	static void BaryCentric(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, COLORREF c)
 	{
 
 		for (double t1 = 0; t1 < 1; t1 += 0.001)
 		{
 			for (double t2 = 0; t2 < 1 - t1; t2 += 0.001)
 			{
-				int x = Round(t1 * x1 + t2 * x2 + (1 - t1 - t2) * x3);
-				int y = Round(t1 * y1 + t2 * y2 + (1 - t1 - t2) * y3);
+				int x = Common::Round(t1 * x1 + t2 * x2 + (1 - t1 - t2) * x3);
+				int y = Common::Round(t1 * y1 + t2 * y2 + (1 - t1 - t2) * y3);
 				SetPixel(hdc, x, y, c);
 			}
 		}

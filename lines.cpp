@@ -2,21 +2,9 @@
 
 class Lines
 {
-    static int Round(double x)
-    {
-        return (int)(x + 0.5);
-    }
-    // Interpolate colors
-    static COLORREF interpolateColors(COLORREF c1, COLORREF c2, double t)
-    {
-        int r = Round(GetRValue(c1) * t + (1 - t) * GetRValue(c2));
-        int g = Round(GetGValue(c1) * t + (1 - t) * GetGValue(c2));
-        int b = Round(GetBValue(c1) * t + (1 - t) * GetBValue(c2));
-        return RGB(r, g, b);
-    }
 
 public:
-    void InterpolatedColoredLine(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c1, COLORREF c2)
+    static void InterpolatedColoredLine(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c1, COLORREF c2)
     {
         int dx = x2 - x1;
         int dy = y2 - y1;
@@ -24,13 +12,13 @@ public:
 
         for (double t = 0; t <= 1; t += steps)
         {
-            COLORREF c = interpolateColors(c1, c2, t);
-            SetPixel(hdc, Round(dx * t + x1), Round(dy * t + y1), c);
+            COLORREF c = Common::interpolateColors(c1, c2, t);
+            SetPixel(hdc, Common::Round(dx * t + x1), Common::Round(dy * t + y1), c);
         }
     }
 
     // Line Bresenham using midpoint algo
-    void LineBresenham(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
+    static void LineBresenhamDDA(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
     {
         int dx = abs(x2 - x1);
         int dy = abs(y2 - y1);
@@ -88,13 +76,13 @@ public:
     }
 
     // Draws line by midpoint as binary search algorithm
-    void DrawLineByMidPoint(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
+    static void DrawLineByMidPoint(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
     {
         SetPixel(hdc, x1, y1, c);
         SetPixel(hdc, x2, y2, c);
 
-        int avgX = Round((x1 + x2) / 2);
-        int avgY = Round((y1 + y2) / 2);
+        int avgX = Common::Round((x1 + x2) / 2);
+        int avgY = Common::Round((y1 + y2) / 2);
 
         for (int i = 0; i < 100000; i++)
         {
