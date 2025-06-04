@@ -95,4 +95,17 @@ public:
 			SetPixel(hdc, point[0], point[1], Common::interpolateColors(c1, c2, t));
 		}
 	}
+
+	static void CardinalSplines(HDC hdc, vector<double> points, int C, COLORREF color)
+	{
+		vector<double> q;
+		for (int i = 0; i < points.size() - 4; i++)
+		{
+			q.push_back((C / 2) * (points[i + 2] - points[i]));
+		}
+		for (int p = 2; p < points.size() - 3; p++)
+		{
+			ThirdDegreeCurve::HermiteCurve(hdc, points[p], points[p + 1], q[p - 2], q[p - 1], points[p + 2], points[p + 3], q[p], q[p + 1], color, color);
+		}
+	}
 };

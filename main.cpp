@@ -4,10 +4,19 @@
 #include "curves_second_degree.cpp"
 #include "lines.cpp"
 #include "tasks_and_assignments.cpp"
-#include <codecvt>
-#include <string>
-
 using namespace std;
+
+void setCanvas(HDC hdc)
+{
+	for (const auto &[position, color] : Common::drawings)
+	{
+		int x = position.first;
+		int y = position.second;
+
+		// Set the pixel on the device context
+		SetPixel(hdc, x, y, color);
+	}
+}
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -40,8 +49,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (counter == 4)
 		{ // adjust counter for number of points
 
+			ThirdDegreeCurve::CardinalSplines(hdc, points, 10, c1);
 			// SecondDegreeCurve::InterpolatedColoredCurve(hdc, points[0], points[1], points[2], points[3], points[4], points[5], c1, c2);
-			ThirdDegreeCurve::BezierCurve(hdc, points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7], c1, c2, false);
+			// ThirdDegreeCurve::BezierCurve(hdc, points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7], c1, c2, false);
 			// ThirdDegreeCurve::BezierInterpolatedCurve(hdc, points[0], points[1], RGB(255, 0, 0), points[2], points[3], RGB(255, 255, 0), points[4], points[5], RGB(0, 255, 0), points[6], points[7], RGB(0, 0, 255));
 			// ThirdDegreeCurve::RecBezier(hdc, points, c1, c2);
 			// Filling::BaryCentric(hdc, points[0], points[1], points[2], points[3], points[4], points[5], c2);
@@ -90,7 +100,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hWnd, &ps);
 		// TODO: Add any drawing code that uses hdc here...
-
+		setCanvas(hdc);
 		EndPaint(hWnd, &ps);
 	}
 	break;
@@ -106,28 +116,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-std::wstring UTF8ToUTF16(const std::string& utf8) {
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    return converter.from_bytes(utf8);
-}
-const std::string utf8Title = "بروجكت التلوين";
 int APIENTRY WinMain(HINSTANCE hi, HINSTANCE pi, LPSTR cmd, int nsh)
 {
-	SetProcessPreferredUILanguages(MUI_LANGUAGE_NAME, L"en-US", nullptr) &&
-           SetThreadPreferredUILanguages(MUI_LANGUAGE_NAME, L"en-US", nullptr);
 	WNDCLASS wc;
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
-	wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+	wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hIcon = LoadIcon(NULL, IDI_WINLOGO);
 	wc.lpszClassName = "MyClass";
 	wc.lpszMenuName = NULL;
 	wc.lpfnWndProc = WndProc;
 	wc.style = CS_HREDRAW | CS_VREDRAW;
 	wc.hInstance = hi;
 	RegisterClass(&wc);
-	HWND hwnd = CreateWindowW(L"MyClass", UTF8ToUTF16(utf8Title).c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hi, 0);
+	HWND hwnd = CreateWindow("MyClass", "Hello World!", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hi, 0);
 	ShowWindow(hwnd, nsh);
 	UpdateWindow(hwnd);
 	MSG msg;

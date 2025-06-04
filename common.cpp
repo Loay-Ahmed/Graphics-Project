@@ -1,9 +1,20 @@
 #include "import.h"
 
+using namespace std;
 class Common
 {
 public:
-    static int Round(double x)
+    struct pixels
+    {
+        int x, y;
+        COLORREF color;
+    };
+
+    vector<Common::pixels>
+        drawings;
+
+    static int
+    Round(double x)
     {
         return (int)(x + 0.5);
     }
