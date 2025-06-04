@@ -58,4 +58,74 @@ public:
 			}
 		}
 	}
+
+//for convex
+typedef struct Entrytable {
+    int xleft, xright;
+
+} Entrytable;
+typedef Entrytable edgetable[800];
+
+struct point
+{
+    double x, y;
+    point()
+    {
+        x = 0; y = 0;
+    }
+};
+
+void init(edgetable tbl)
+{
+    for (int i = 0; i < 800; i++)
+    {
+        tbl[i].xleft = 10000;
+        tbl[i].xright = -10000;
+    }
+}
+
+void edge2table(point v1, point v2, edgetable tbl)
+{
+    if (v1.y == v2.y) return;
+    if (v1.y > v2.y) { swap(v1, v2); }
+    int y = v1.y;
+    double x = v1.x;
+    double minv = (v2.x - v1.x) / (v2.y - v1.y);
+    while (y < v2.y)
+    {
+        if (x < tbl[y].xleft) tbl[y].xleft = (int)ceil(x);
+        if (x > tbl[y].xright) tbl[y].xright = (int)floor(x);
+        y++;
+        x += minv;
+    }
+}
+
+void polygon2table(point p[], int n, edgetable tbl) {
+    point v1 = p[n - 1];
+    for (int i = 0; i < n; i++)
+    {
+        point v2 = p[i];
+        edge2table(v1, v2, tbl);
+        v1 = p[i];
+    }
+}
+
+void table2screen(HDC hdc, edgetable tbl, COLORREF c)
+{
+    for (int i = 0; i < 800; i++)
+    {
+        if (tbl[i].xleft < tbl[i].xright)
+        {
+            LineBresenham(hdc, tbl[i].xleft, i, tbl[i].xright, i, c);
+        }
+    }
+}
+
+void convexfill(HDC hdc, point p[], int n, COLORREF c)
+{
+    edgetable tbl;
+    init(tbl);
+    polygon2table(p, n, tbl);
+    table2screen(hdc, tbl, c);
+}
 };
