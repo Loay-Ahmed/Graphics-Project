@@ -7,6 +7,7 @@
 #include "import.h"
 using namespace std;
 
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static int x1, y1, x2, y2;
