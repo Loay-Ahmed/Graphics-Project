@@ -1,17 +1,12 @@
 #include "import.h"
-
+#include <map>
+#include <utility>
 using namespace std;
 class Common
 {
 public:
-    struct pixels
-    {
-        int x, y;
-        COLORREF color;
-    };
-
-    vector<Common::pixels>
-        drawings;
+    using PixelPosition = std::pair<int, int>;
+    static std::map<Common::PixelPosition, COLORREF> drawings ;
 
     static int
     Round(double x)
@@ -49,3 +44,4 @@ public:
         return result;
     }
 };
+std::map<Common::PixelPosition, COLORREF> Common::drawings;

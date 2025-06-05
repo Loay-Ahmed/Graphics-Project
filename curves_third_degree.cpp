@@ -28,6 +28,7 @@ public:
 			int y = Common::Round(Cy[0] * t3 + Cy[1] * t2 + Cy[2] * t + Cy[3]);
 			COLORREF c = Common::interpolateColors(c1, c2, t);
 			SetPixel(hdc, x, y, c);
+			Common::drawings[{x,y}] = c;
 		}
 	}
 

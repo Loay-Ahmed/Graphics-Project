@@ -4,19 +4,8 @@
 #include "curves_second_degree.cpp"
 #include "lines.cpp"
 #include "tasks_and_assignments.cpp"
+#include "storage.cpp"
 using namespace std;
-
-void setCanvas(HDC hdc)
-{
-	for (const auto &[position, color] : Common::drawings)
-	{
-		int x = position.first;
-		int y = position.second;
-
-		// Set the pixel on the device context
-		SetPixel(hdc, x, y, color);
-	}
-}
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -87,10 +76,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_RBUTTONDOWN:
 	{
 		HDC hdc = GetDC(hWnd);
-		x2 = LOWORD(lParam);
-		y2 = HIWORD(lParam);
-		COLORREF c2 = RGB(50, 100, 0);
-		Filling::NonRecFloodFill(hdc, x2, y2, c2);
+		// x2 = LOWORD(lParam);
+		// y2 = HIWORD(lParam);
+		// COLORREF c2 = RGB(50, 100, 0);
+		// Filling::NonRecFloodFill(hdc, x2, y2, c2);
+		Storage::loadFromFile(hdc);
 		ReleaseDC(hWnd, hdc);
 		break;
 	}
@@ -100,7 +90,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hWnd, &ps);
 		// TODO: Add any drawing code that uses hdc here...
-		setCanvas(hdc);
 		EndPaint(hWnd, &ps);
 	}
 	break;
