@@ -56,6 +56,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_LBUTTONUP:
 	{
 		HDC hdc = GetDC(hWnd);
+		Storage::loadFromFile(hdc);
 
 		// use for two points algorithms + Hermite
 		// x2 = LOWORD(lParam);
@@ -80,7 +81,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// y2 = HIWORD(lParam);
 		// COLORREF c2 = RGB(50, 100, 0);
 		// Filling::NonRecFloodFill(hdc, x2, y2, c2);
-		Storage::loadFromFile(hdc);
+		Storage::clearCanvas(hWnd);
 		ReleaseDC(hWnd, hdc);
 		break;
 	}
@@ -110,7 +111,7 @@ int APIENTRY WinMain(HINSTANCE hi, HINSTANCE pi, LPSTR cmd, int nsh)
 	WNDCLASS wc;
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
-	wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
+	wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wc.hIcon = LoadIcon(NULL, IDI_WINLOGO);
 	wc.lpszClassName = "MyClass";

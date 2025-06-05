@@ -23,6 +23,12 @@ public:
         outFile.close();
         return true;
     }
+    static void clearCanvas(HWND hwnd)
+    {
+        InvalidateRect(hwnd, NULL, true);
+        UpdateWindow(hwnd);
+        Common::drawings.clear();
+    }
     static void setCanvas(HDC hdc)
     {
         for (const auto &pair : Common::drawings)
