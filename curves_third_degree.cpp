@@ -1,3 +1,4 @@
+#include "common.cpp"
 #include "import.h"
 
 class ThirdDegreeCurve

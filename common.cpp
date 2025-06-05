@@ -1,3 +1,7 @@
+#ifndef COMMON_H
+#define COMMON_H
+
+
 #include "import.h"
 
 class Common
@@ -38,3 +42,4 @@ public:
         return result;
     }
 };
+#endif
