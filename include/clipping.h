@@ -14,7 +14,6 @@ class Clipping {
     static std::vector<POINT> SutherlandHodgmanClip(const POINT* input, int n);
     static bool inside(int x, int y, int edge);
     static POINT intersect(POINT p1, POINT p2, int edge);
-    static int computeCode(int x, int y);
 
     // Dynamic window boundaries (user can set)
     static int CLIP_X_MIN;
