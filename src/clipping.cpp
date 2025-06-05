@@ -186,3 +186,11 @@ void Clipping::Clippingpoint(HDC hdc, int x, int y, COLORREF color) {
     }
     SetPixel(hdc, x, y, color);
 }
+int Clipping::computeCode(int x, int y) {
+    int code = 0;
+    if (x < CLIP_X_MIN) code |= LEFT;
+    else if (x > CLIP_X_MAX) code |= RIGHT;
+    if (y < CLIP_Y_MIN) code |= BOTTOM;
+    else if (y > CLIP_Y_MAX) code |= TOP;
+    return code;
+}
