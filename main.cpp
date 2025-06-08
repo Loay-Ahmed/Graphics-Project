@@ -71,7 +71,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         circleQuarter = 4; // bottom-right
 
                     COLORREF fillColor = RGB(255, 0, 0); // red fill color
-                    Filling::FillCircleQuarter(hdc, x1, y1, circleRadius, circleQuarter, fillColor);
+                    Filling::FillQuarterWithSmallCircles(hdc, x1, y1, circleRadius, circleQuarter, fillColor);
 
                     // Reset for next circle
                     circleCenterSet = false;
