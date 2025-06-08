@@ -1,7 +1,7 @@
 #include "import.h"
 #include "common.cpp"
 #include "lines.cpp"
-
+#include "curves_second_degree.cpp"
 using namespace std;
 class Filling
 {
@@ -101,6 +101,43 @@ public:
 
             // For simplicity, use your Lines::DrawLineByMidPoint or LineBresenhamDDA
             Lines::LineBresenhamDDA(hdc, xc, yc, xEnd, yEnd, c);
+        }
+    }
+
+
+    static void FillQuarterWithSmallCircles(HDC hdc, int xc, int yc, int R, int quarter, COLORREF c)
+    {
+        const int maxRadius = 4;
+        const int minRadius = 1;
+
+        for (int y = -R; y <= R; y += 2 * maxRadius)
+        {
+            for (int x = -R; x <= R; x += 2 * maxRadius)
+            {
+                double distSquared = x * x + y * y;
+                if (distSquared <= R * R)
+                {
+                    bool inQuarter = false;
+                    switch (quarter)
+                    {
+                        case 1: inQuarter = (x >= 0 && y <= 0); break;
+                        case 2: inQuarter = (x <= 0 && y <= 0); break;
+                        case 3: inQuarter = (x <= 0 && y >= 0); break;
+                        case 4: inQuarter = (x >= 0 && y >= 0); break;
+                    }
+
+                    if (inQuarter)
+                    {
+                        double dist = sqrt(distSquared);
+                        double ratio = dist / R;
+                        int rSmall = static_cast<int>(minRadius + (1.0 - ratio) * (maxRadius - minRadius));
+
+                        if (rSmall < 1) rSmall = 1;
+
+                        SecondDegreeCurve::BresenhamCircle(hdc, xc + x, yc + y, rSmall, c);
+                    }
+                }
+            }
         }
     }
 };

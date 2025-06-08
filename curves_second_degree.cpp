@@ -1,3 +1,6 @@
+#ifndef CURVES_SECOND_DEGREE_H
+#define CURVES_SECOND_DEGREE_H
+
 #include "common.cpp"
 #include "import.h"
 
@@ -65,3 +68,4 @@ public:
         }
     }
 };
+#endif
