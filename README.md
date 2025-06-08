@@ -3,7 +3,7 @@ Computer graphics course project
 
 ## How To run the project
 -- Step 1 compile the src files
-C:/MinGW/bin/g++.exe -fdiagnostics-color=always -g src/*.cpp -o GraphicsProject.exe -lgdi32 -luser32
+g++ src/*.cpp -I. -I./include -o GraphicsProject.exe -lgdi32 -luser32 -lcomdlg32 -mwindows
 
 -- Step 2 Run
 .\GraphicsProject.exe

@@ -51,14 +51,12 @@ void test_computeCode() {
 void test_SutherlandHodgmanClip() {
     Clipping::SetClipWindow(0, 0, 100, 100);
     std::vector<POINT> poly = { {50, 50}, {150, 50}, {150, 150}, {50, 150} };
-    POINT out[10];
-    int outCount = 0;
-    Clipping::SutherlandHodgmanClip(poly.data(), poly.size(), out, outCount);
+    std::vector<POINT> clipped = Clipping::SutherlandHodgmanClip(poly.data(), static_cast<int>(poly.size()));
     // Output should be a clipped rectangle
-    assert(outCount == 4);
-    for (int i = 0; i < outCount; ++i) {
-        assert(out[i].x >= 0 && out[i].x <= 100);
-        assert(out[i].y >= 0 && out[i].y <= 100);
+    assert(clipped.size() == 4);
+    for (const auto& pt : clipped) {
+        assert(pt.x >= 0 && pt.x <= 100);
+        assert(pt.y >= 0 && pt.y <= 100);
     }
 }
 
