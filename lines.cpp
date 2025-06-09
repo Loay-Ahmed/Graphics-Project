@@ -1,3 +1,8 @@
+#ifndef LINES_H
+#define LINES_H
+
+
+#include "common.cpp"
 #include "import.h"
 
 class Lines
@@ -99,3 +104,4 @@ public:
         DrawLineByMidPoint(hdc, avgX, avgY, x2, y2, c);
     }
 };
+#endif

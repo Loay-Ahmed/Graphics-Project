@@ -1,3 +1,7 @@
+#ifndef CURVES_THIRD_DEGREE_H
+#define CURVES_THIRD_DEGREE_H
+
+#include "common.cpp"
 #include "import.h"
 
 class ThirdDegreeCurve
@@ -96,3 +100,5 @@ public:
 		}
 	}
 };
+
+#endif
