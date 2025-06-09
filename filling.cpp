@@ -2,6 +2,7 @@
 #include "common.cpp"
 #include "lines.cpp"
 #include "curves_second_degree.cpp"
+#include "curves_third_degree.cpp"
 using namespace std;
 class Filling
 {
@@ -140,4 +141,29 @@ public:
             }
         }
     }
+
+    static void FillRectangleWithBezierWaves(HDC hdc, int left, int top, int right, int bottom, COLORREF c)
+    {
+        int waveHeight = 15;   // bigger amplitude to overlap vertically
+        int waveLength = 40;   // length of wave cycle
+        int stepY = 6;         // smaller vertical step for denser waves
+
+        for (int y = top; y <= bottom; y += stepY)
+        {
+            for (int x = left; x < right; x += waveLength)
+            {
+                int x1 = x;
+                int y1 = y;
+                int x2 = x + waveLength / 4;
+                int y2 = y - waveHeight;
+                int x3 = x + 3 * waveLength / 4;
+                int y3 = y + waveHeight;
+                int x4 = x + waveLength;
+                int y4 = y;
+
+                ThirdDegreeCurve::BezierCurve(hdc, x1, y1, x2, y2, x3, y3, x4, y4, c, c, false);
+            }
+        }
+    }
+
 };

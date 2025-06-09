@@ -19,7 +19,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int circleRadius = 50;      // example fixed radius, can be changed or made dynamic
     static int circleQuarter = 1;      // quarter to fill (1-4)
     static bool circleCenterSet = false;
-
+    static bool rectangleDrawingMode = false;
     switch (message)
     {
         case WM_KEYDOWN:
@@ -31,13 +31,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 circleCenterSet = false;
                 InvalidateRect(hWnd, NULL, TRUE); // force redraw if needed
             }
+            else if (wParam == 'R' || wParam == 'r') // activate rectangle drawing mode on 'R'
+            {
+                rectangleDrawingMode = true;
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
             break;
 
         case WM_LBUTTONDOWN:
         {
             HDC hdc = GetDC(hWnd);
+            if (rectangleDrawingMode)
+            {
 
-            if (circleDrawingMode)
+                x1 = LOWORD(lParam);
+                y1 = HIWORD(lParam);
+
+                int rectWidth = 200;
+                int rectHeight = 100;
+
+
+                RECT rect = { x1, y1, x1 + rectWidth, y1 + rectHeight };
+                FrameRect(hdc, &rect, (HBRUSH)GetStockObject(BLACK_BRUSH));
+
+                Filling::FillRectangleWithBezierWaves(hdc, rect.left, rect.top, rect.right, rect.bottom, RGB(255, 0, 0));
+
+
+                rectangleDrawingMode = false;
+
+                ReleaseDC(hWnd, hdc);
+            }
+           else if (circleDrawingMode)
             {
                 if (!circleCenterSet)
                 {
