@@ -142,6 +142,7 @@ public:
         }
     }
 
+
     static void FillRectangleWithBezierWaves(HDC hdc, int left, int top, int right, int bottom, COLORREF c)
     {
         int waveHeight = 15;   // bigger amplitude to overlap vertically
