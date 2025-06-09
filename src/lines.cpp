@@ -78,3 +78,14 @@ void Lines::DrawLineByMidPoint(HDC hdc, int x1, int y1, int x2, int y2, COLORREF
     SetPixel(hdc, avgX, avgY, c);
     DrawLineByMidPoint(hdc, avgX, avgY, x2, y2, c);
 }
+
+void Lines::DrawLineParametric(HDC hdc, int x1, int y1, int x2, int y2, COLORREF c)
+{
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+    double steps = 1.0 / std::max(abs(dx), abs(dy));
+    for (double t = 0; t <= 1; t += steps)
+    {
+        SetPixel(hdc, Common::Round(x1 + t * dx), Common::Round(y1 + t * dy), c);
+    }
+}

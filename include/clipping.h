@@ -6,7 +6,7 @@
 class Clipping {
   public:
     static void SetClipWindow(int xmin, int ymin, int xmax, int ymax);
-    static void ClippingPolygon(HDC hdc, POINT *points, int n, COLORREF color);
+    static void ClippingPolygon(HDC hdc, const POINT *points, int n, COLORREF color);
     static void ClippingLine(HDC hdc, int x1, int y1, int x2, int y2, COLORREF color);
     static void ClipLineSquare(HDC hdc, int x1, int y1, int x2, int y2, COLORREF color);
     static void ClipPointSquare(HDC hdc, int x, int y, COLORREF color);
@@ -39,9 +39,10 @@ class Clipping {
  */
     struct Node {
         Node* next;
-        int x, maxY;
+        double x;
+        int maxY;
         double Minv; // 1/m
-        Node(int x, int maxY, double Minv) : x(x), maxY(maxY), Minv(Minv), next(nullptr) {}
+        Node(double x, int maxY, double Minv) : x(x), maxY(maxY), Minv(Minv), next(nullptr) {}
     };
   
     /**
@@ -62,7 +63,7 @@ class Clipping {
          * @param Minv The inverse of the slope of the edge (1/m).
          * This method creates a new Node and adds it to the end of the linked list.
          */
-        void add(int x, int maxY, double Minv) {
+        void add(double x, int maxY, double Minv) {
             Node* newNode = new Node(x, maxY, Minv);
             if (!head) {
                 head = tail = newNode;

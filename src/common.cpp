@@ -1,4 +1,5 @@
 #include "../include/common.h"
+#include <cmath>
 
 int Common::Round(double x)
 {
@@ -32,4 +33,18 @@ std::vector<int> Common::matrixMult(std::vector<std::vector<int>> m1, std::vecto
     }
 
     return result;
+}
+
+bool Common::isValidPolygon(const std::vector<POINT>& points) {
+    if (points.size() < 2) return true; // Need at least two points to check distance
+
+    POINT newPoint = points.back();
+    // Check distance to all other points except itself
+    for (size_t i = 0; i < points.size() - 1; ++i) {
+        double distance = std::hypot(newPoint.x - points[i].x, newPoint.y - points[i].y);
+        if (distance < 5) { // Threshold for minimum distance
+            return false;
+        }
+    }
+    return true;
 }
