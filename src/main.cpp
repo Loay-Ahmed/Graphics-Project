@@ -43,7 +43,9 @@ enum MenuShapeType {
     SHAPE_SPLINE,
     SHAPE_CLIP,
     SHAPE_FILL,
-    SHAPE_POINT
+    SHAPE_POINT,
+    SHAPE_EXTRA_QUARTER_CIRCLES, // New shape type for extra method
+    SHAPE_EXTRA_RECT_BEZIER_WAVES, // Add new shape type for Bezier waves
 };
 
 // ===== Drawing Algorithm Types =====
@@ -83,7 +85,12 @@ struct LayerRect { POINT p1, p2; COLORREF color; };
 struct LayerPolygon { std::vector<POINT> pts; COLORREF color; };
 struct LayerPoint { POINT pt; COLORREF color; };
 struct LayerFill { POINT fillPoint; COLORREF color; FillAlgorithm alg; };
-using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill>;
+struct LayerQuarterCircleFilling { POINT center; int radius; int quarter; COLORREF color; };
+struct LayerRectangleBezierWaves {
+    POINT p1, p2;
+    COLORREF color;
+};
+using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill, LayerQuarterCircleFilling, LayerRectangleBezierWaves>;
 
 struct Layer {
     LayerShape shape;
@@ -98,6 +105,17 @@ static std::optional<POINT> clipWindowStart;
 static std::optional<POINT> clipWindowCurrent;
 static std::optional<LayerPolygon> originalPolygonLayer;
 static std::optional<LayerPolygon> lastPolygonClipped;
+// Extra: state for quarter circles filling
+static bool extraQuarterCircleActive = false;
+static int extraQuarterStage = 0; // 0: none, 1: center set, 2: radius set
+static POINT extraQuarterCenter = {0,0};
+static int extraQuarterRadius = 0;
+static int extraQuarterQuarter = 1;
+// Extra: state for rectangle Bezier waves
+static bool extraRectBezierActive = false;
+static int extraRectBezierStage = 0; // 0: none, 1: first corner set
+static POINT extraRectBezierP1 = {0,0};
+static POINT extraRectBezierP2 = {0,0};
 
 // ===== Utility Functions =====
 void log_debug(const std::string& msg) {
@@ -192,7 +210,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         // extra menu
         HMENU hExtraMenu = CreatePopupMenu();
-        AppendMenu(hExtraMenu, MF_STRING, 10001, "Quarter Small Circles");
+        AppendMenu(hExtraMenu, MF_STRING, 10001, "Quarter Circles filling");
         AppendMenu(hExtraMenu, MF_STRING, 10002, "Rectangle Bezier Waves");
         AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hExtraMenu, "Extra Draw Methods");
 
@@ -313,19 +331,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             // Extra Draw Methods
             if (id == 10001) {
-                // Example: Draw quarter with small circles at center (300,300), R=100, quarter=1
-                HDC hdc = GetDC(hWnd);
-                Filling::FillQuarterWithSmallCircles(hdc, 300, 300, 100, 1, RGB(255,0,0));
-                ReleaseDC(hWnd, hdc);
+                // Activate dynamic quarter circle filling mode
+                currentShape = SHAPE_EXTRA_QUARTER_CIRCLES;
+                extraQuarterCircleActive = true;
+                extraQuarterStage = 0;
+                userPoints.clear();
+                currentPolygon.reset();
             } else if (id == 10002) {
-                // Example: Draw rectangle with Bezier waves
-                HDC hdc = GetDC(hWnd);
-                Filling::FillRectangleWithBezierWaves(hdc, 100, 100, 400, 300, RGB(0,0,255));
-                ReleaseDC(hWnd, hdc);
+                // Activate dynamic rectangle Bezier waves mode
+                currentShape = SHAPE_EXTRA_RECT_BEZIER_WAVES;
+                extraRectBezierActive = true;
+                extraRectBezierStage = 0;
+                userPoints.clear();
+                currentPolygon.reset();
             }
         }
         break;
-
     case WM_LBUTTONDOWN:
         {
             int x = LOWORD(lParam);
@@ -541,9 +562,62 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 InvalidateRect(hWnd, NULL, TRUE);
             }
+            // Handle dynamic quarter circle filling
+            else if (currentShape == SHAPE_EXTRA_QUARTER_CIRCLES && extraQuarterCircleActive) {
+                if (extraQuarterStage == 0) {
+                    // First click: set center
+                    extraQuarterCenter = {x, y};
+                    extraQuarterStage = 1;
+                } else if (extraQuarterStage == 1) {
+                    // Second click: set radius
+                    int dx = x - extraQuarterCenter.x;
+                    int dy = y - extraQuarterCenter.y;
+                    extraQuarterRadius = (int)hypot(dx, dy);
+                    extraQuarterStage = 2;
+                    InvalidateRect(hWnd, NULL, TRUE); // Redraw to show preview
+                } else if (extraQuarterStage == 2) {
+                    // Third click: select quarter based on click position
+                    int dx = x - extraQuarterCenter.x;
+                    int dy = y - extraQuarterCenter.y;
+                    int dist = (int)hypot(dx, dy);
+                    if (dist > extraQuarterRadius) {
+                        MessageBox(hWnd, "Error: Click is outside the circle boundary. Please click inside the circle to select a quarter.", "Quarter Selection Error", MB_OK | MB_ICONERROR);
+                        return 0;
+                    }
+                    int dy_inv = extraQuarterCenter.y - y; // y axis inverted for quarter logic
+                    if (dx >= 0 && dy_inv >= 0)
+                        extraQuarterQuarter = 1; // top-right
+                    else if (dx < 0 && dy_inv >= 0)
+                        extraQuarterQuarter = 2; // top-left
+                    else if (dx < 0 && dy_inv < 0)
+                        extraQuarterQuarter = 3; // bottom-left
+                    else
+                        extraQuarterQuarter = 4; // bottom-right
+                    // Add as a new layer
+                    layers.push_back(Layer{LayerQuarterCircleFilling{extraQuarterCenter, extraQuarterRadius, extraQuarterQuarter, currentColor}});
+                    extraQuarterCircleActive = false;
+                    extraQuarterStage = 0;
+                    InvalidateRect(hWnd, NULL, TRUE);
+                }
+            }
+            // Handle dynamic rectangle Bezier waves
+            else if (currentShape == SHAPE_EXTRA_RECT_BEZIER_WAVES && extraRectBezierActive) {
+                if (extraRectBezierStage == 0) {
+                    // First click: set first corner
+                    extraRectBezierP1 = {x, y};
+                    extraRectBezierStage = 1;
+                } else if (extraRectBezierStage == 1) {
+                    // Second click: set opposite corner and create layer
+                    extraRectBezierP2 = {x, y};
+                    layers.push_back(Layer{LayerRectangleBezierWaves{extraRectBezierP1, extraRectBezierP2, currentColor}});
+                    extraRectBezierActive = false;
+                    extraRectBezierStage = 0;
+                    InvalidateRect(hWnd, NULL, TRUE);
+                }
+                break;
+            }
         }
         break;
-
     case WM_MOUSEMOVE:
         {
             int x = LOWORD(lParam);
@@ -558,7 +632,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
-
     case WM_RBUTTONDOWN:
         {
             // Handle polygon completion
@@ -588,7 +661,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
-
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -691,6 +763,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 break;
                             }
                         }
+                    } else if constexpr (std::is_same_v<T, LayerQuarterCircleFilling>) {
+                        // Draw the circle boundary
+                        SecondDegreeCurve::BresenhamCircle(hdc, shape.center.x, shape.center.y, shape.radius, shape.color);
+                        // Draw the filled quarter
+                        Filling::FillQuarterWithSmallCircles(hdc, shape.center.x, shape.center.y, shape.radius, shape.quarter, shape.color);
+                    } else if constexpr (std::is_same_v<T, LayerRectangleBezierWaves>) {
+                        // Draw rectangle boundary
+                        POINT rectPoints[5] = {
+                            shape.p1,
+                            {shape.p2.x, shape.p1.y},
+                            shape.p2,
+                            {shape.p1.x, shape.p2.y},
+                            shape.p1
+                        };
+                        DrawPolygon(hdc, std::vector<POINT>(rectPoints, rectPoints + 5), shape.color);
+                        // Fill with Bezier waves
+                        Filling::FillRectangleWithBezierWaves(hdc, shape.p1.x, shape.p1.y, shape.p2.x, shape.p2.y, shape.color);
                     }
                 }, layer.shape);
             }
@@ -718,6 +807,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 HPEN hPen = CreatePen(PS_DOT, 1, RGB(0,0,255));
                 HGDIOBJ oldPen = SelectObject(hdc, hPen);
                 Rectangle(hdc, x0, y0, x1, y1);
+                SelectObject(hdc, oldPen);
+                DeleteObject(hPen);
+            }
+            // Draw preview for quarter circle boundary if in stage 2
+            if (currentShape == SHAPE_EXTRA_QUARTER_CIRCLES && extraQuarterCircleActive && extraQuarterStage == 2) {
+                // Draw the circle boundary using midpoint
+                SecondDegreeCurve::BresenhamCircle(hdc, extraQuarterCenter.x, extraQuarterCenter.y, extraQuarterRadius, currentColor);
+            }
+            // Draw preview for rectangle if in stage 1
+            if (currentShape == SHAPE_EXTRA_RECT_BEZIER_WAVES && extraRectBezierActive && extraRectBezierStage == 1) {
+                HPEN hPen = CreatePen(PS_DOT, 1, currentColor);
+                HGDIOBJ oldPen = SelectObject(hdc, hPen);
+                Rectangle(hdc, extraRectBezierP1.x, extraRectBezierP1.y, extraRectBezierP1.x + 1, extraRectBezierP1.y + 1); // single point if not moved
+                POINT mouse;
+                GetCursorPos(&mouse);
+                ScreenToClient(hWnd, &mouse);
+                Rectangle(hdc, extraRectBezierP1.x, extraRectBezierP1.y, mouse.x, mouse.y);
                 SelectObject(hdc, oldPen);
                 DeleteObject(hPen);
             }
