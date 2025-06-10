@@ -20,6 +20,8 @@
 using namespace std;
 
 // ===== Drawing Modes and Shape Types =====
+// DrawingMode: not used for menu, but for internal logic
+// MenuShapeType: used to track which shape/tool is currently active
 enum DrawingMode {
     MODE_NONE,
     MODE_BEZIER_CURVE,
@@ -33,22 +35,26 @@ enum DrawingMode {
     MODE_ELLIPSE_EQUATION
 };
 
+// ===== Menu Shape Types =====
+// Used to track which shape/tool is currently active from the menu
 enum MenuShapeType {
-    SHAPE_NONE,
-    SHAPE_LINE,
-    SHAPE_CIRCLE,
-    SHAPE_ELLIPSE,
-    SHAPE_RECT,
-    SHAPE_POLYGON,
-    SHAPE_SPLINE,
-    SHAPE_CLIP,
-    SHAPE_FILL,
-    SHAPE_POINT,
-    SHAPE_EXTRA_QUARTER_CIRCLES, // New shape type for extra method
-    SHAPE_EXTRA_RECT_BEZIER_WAVES, // Add new shape type for Bezier waves
+    SHAPE_NONE,                      // No shape/tool selected
+    SHAPE_LINE,                      // Line drawing mode
+    SHAPE_CIRCLE,                    // Circle drawing mode
+    SHAPE_ELLIPSE,                   // Ellipse drawing mode
+    SHAPE_RECT,                      // Rectangle drawing mode
+    SHAPE_POLYGON,                   // Polygon drawing mode
+    SHAPE_SPLINE,                    // Spline/curve drawing mode
+    SHAPE_CLIP,                      // Clipping window/tool mode
+    SHAPE_FILL,                      // Filling mode
+    SHAPE_POINT,                     // Single point drawing mode
+    SHAPE_EXTRA_QUARTER_CIRCLES,     // Extra: Quarter circles filling mode
+    SHAPE_EXTRA_RECT_BEZIER_WAVES,   // Extra: Rectangle Bezier waves mode
 };
 
 // ===== Drawing Algorithm Types =====
+// These enums define the algorithms used for drawing lines, circles, ellipses, and filling
+// They are used to select the appropriate algorithm based on user input or menu selection
 enum LineAlgorithm { LINE_DDA, LINE_MIDPOINT, LINE_PARAMETRIC };
 enum CircleAlgorithm { CIRCLE_DIRECT, CIRCLE_POLAR, CIRCLE_ITER_POLAR, CIRCLE_MIDPOINT, CIRCLE_MOD_MIDPOINT };
 enum EllipseAlgorithm { ELLIPSE_DIRECT, ELLIPSE_POLAR, ELLIPSE_MIDPOINT };
@@ -58,26 +64,54 @@ enum ClippingWindowType {
     CLIP_SQUARE
 };
 
-// ===== Global Variables =====
+//______________________________________________________
+// ============= Global State Variables ==============
+//______________________________________________________
+
+
+// Current drawing mode (not used for menu, for internal logic)
 static DrawingMode currentMode = MODE_NONE;
+
+// Handles for UI buttons (if any are created)
 static HWND hwndButtons[11];
+
+// Button layout constants (not used in this code, but may be for future UI)
 static const int BUTTON_WIDTH = 150;
 static const int BUTTON_HEIGHT = 30;
 static const int BUTTON_SPACING = 10;
+
+// Left margin for drawing area (used in window creation)
 static const int DRAWING_AREA_LEFT = BUTTON_WIDTH + 20;
 
+// Currently selected shape/tool from menu
 static MenuShapeType currentShape = SHAPE_NONE;
+
+// Currently selected algorithms for each shape type
 static LineAlgorithm currentLineAlg = LINE_DDA;
 static CircleAlgorithm currentCircleAlg = CIRCLE_DIRECT;
 static EllipseAlgorithm currentEllipseAlg = ELLIPSE_DIRECT;
+
+// Currently selected clipping window type (rectangle or square)
 static ClippingWindowType currentClipWindowType = CLIP_RECTANGLE;
+
+// Currently selected drawing color
 static COLORREF currentColor = RGB(0,0,0);
+
+// Stores user input points for interactive drawing
 static std::vector<POINT> userPoints;
+
+// Stores names/types of drawn shapes (not used in this code, but may be for undo/history)
 static std::vector<std::string> drawnShapes;
+
+// Currently selected filling algorithm
 static FillAlgorithm currentFillAlg = FILL_RECURSIVE_FLOOD;
+
+// Stores the point where filling should start (if any)
 static std::optional<POINT> fillPoint;
 
 // ===== Layer System =====
+// Each Layer struct represents a drawable object with its parameters and color
+// LayerShape is a variant holding any possible drawable type
 struct LayerLine { POINT p1, p2; COLORREF color; LineAlgorithm alg; };
 struct LayerCircle { POINT center; int r; COLORREF color; CircleAlgorithm alg; };
 struct LayerEllipse { POINT center; int a, b; COLORREF color; EllipseAlgorithm alg; };
@@ -97,6 +131,7 @@ struct Layer {
 };
 
 // ===== State Management =====
+// These variables track the current drawing state, previews, and extra modes
 static std::vector<Layer> layers;
 static std::optional<LayerPolygon> currentPolygon;
 static std::optional<POINT> linePreviewStart;
@@ -118,6 +153,8 @@ static POINT extraRectBezierP1 = {0,0};
 static POINT extraRectBezierP2 = {0,0};
 
 // ===== Utility Functions =====
+// log_debug: writes debug messages to a file
+// DrawPolygon: draws a closed polygon using the midpoint line algorithm
 void log_debug(const std::string& msg) {
     std::ofstream log("clipping_debug.log", std::ios::app);
     log << msg << std::endl;
@@ -144,12 +181,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
-        // Initialize window properties
+        // Set white background and cross cursor
         SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)CreateSolidBrush(RGB(255,255,255)));
         HCURSOR hCursor = LoadCursor(NULL, IDC_CROSS);
         SetClassLongPtr(hWnd, GCLP_HCURSOR, (LONG_PTR)hCursor);
 
-        // Create menu structure
+        // Create menu bar and all submenus
         HMENU hMenuBar = CreateMenu();
         
         // File menu
@@ -231,6 +268,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
         {
             int id = LOWORD(wParam);
+            // Handle menu commands for shape selection, color, algorithms, etc.
             // File menu handlers
             if (id == 1001) { /* Save logic (not implemented) */ }
             else if (id == 1002) { /* Load logic (not implemented) */ }
@@ -301,6 +339,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     "  Square window supports only line and point clipping.\n"
                     "- Use the 'Color' menu to change drawing color.\n"
                     "- Use 'Clear' to erase all.\n\n"
+                    "Extra Draw Methods:\n"
+                    "- Quarter Circles filling: Select from menu, then:\n"
+                    "  1. Click to set the center of the circle.\n"
+                    "  2. Click to set the radius (distance from center).\n"
+                    "  3. Click inside the circle to select which quarter to fill (based on click position).\n"
+                    "     If you click outside the circle, an error is shown.\n"
+                    "- Rectangle Bezier Waves: Select from menu, then:\n"
+                    "  1. Click to set one corner of the rectangle.\n"
+                    "  2. Click to set the opposite corner. The rectangle and Bezier waves fill will be drawn.\n\n"
                     "Tip: Right-click cancels in-progress lines or polygons.\n\n"
                     "Note: Only lines, points, and (for rectangle window) polygons are clipped. Other shapes are ignored.",
                     "Manual / Help", MB_OK | MB_ICONINFORMATION);
@@ -329,16 +376,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             else if (id >= 9001 && id <= 9004) {
                 currentFillAlg = (FillAlgorithm)(id - 9001);
             }
-            // Extra Draw Methods
+            // Extra Draw Methods: activate interactive modes for extra shapes
             if (id == 10001) {
-                // Activate dynamic quarter circle filling mode
+                // Quarter Circles filling: user will click 3 times (center, radius, quarter)
                 currentShape = SHAPE_EXTRA_QUARTER_CIRCLES;
                 extraQuarterCircleActive = true;
                 extraQuarterStage = 0;
                 userPoints.clear();
                 currentPolygon.reset();
             } else if (id == 10002) {
-                // Activate dynamic rectangle Bezier waves mode
+                // Rectangle Bezier Waves: user will click 2 times (opposite corners)
                 currentShape = SHAPE_EXTRA_RECT_BEZIER_WAVES;
                 extraRectBezierActive = true;
                 extraRectBezierStage = 0;
@@ -351,7 +398,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             int x = LOWORD(lParam);
             int y = HIWORD(lParam);
-            
+            // Handle all interactive drawing logic based on currentShape
             // Handle clipping window creation
             if (currentShape == SHAPE_CLIP) {
                 if (!clipWindowStart) {
@@ -622,7 +669,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             int x = LOWORD(lParam);
             int y = HIWORD(lParam);
-            // Update preview positions
+            // Update preview positions for line and clip window
             if (currentShape == SHAPE_LINE && linePreviewStart) {
                 linePreviewCurrent = POINT{x, y};
                 InvalidateRect(hWnd, NULL, FALSE);
@@ -634,6 +681,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_RBUTTONDOWN:
         {
+            // Right-click: finish polygon, cancel line/clip preview
             // Handle polygon completion
             if (currentShape == SHAPE_POLYGON && currentPolygon && currentPolygon->pts.size() >= 3) {
                 if (currentPolygon->pts.front().x != currentPolygon->pts.back().x ||
@@ -849,15 +897,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 // ===== Main Entry Point =====
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+    // Register window class and create main window
     WNDCLASS wc = {0};
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInstance;
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW);
     wc.lpszClassName = "GraphicsClass";
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-
     RegisterClass(&wc);
-
     HWND hwnd = CreateWindow(
         "GraphicsClass", "Graphics Project",
         WS_OVERLAPPEDWINDOW,
@@ -866,16 +913,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         NULL, NULL,
         hInstance, NULL
     );
-
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
-
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
-
     return msg.wParam;
 }
+// ===== End of File =====
