@@ -70,3 +70,32 @@ class Filling
 		}
 	}
 };
+static void FillSquareWithVerticalHermiteWaves(HDC hdc, int left, int top, int size, COLORREF c)
+{
+	int waveHeight = 15;  // Amplitude
+	int waveLength = 40;  // Vertical wave cycle
+	int stepX = 6;        // Horizontal step for density
+
+	int right = left + size;
+	int bottom = top + size;
+
+	for (int x = left; x <= right; x += stepX)
+	{
+		for (int y = top; y < bottom; y += waveLength)
+		{
+			// Hermite curve needs two points and two tangents
+			int x0 = x;
+			int y0 = y;
+			int x1 = x;
+			int y1 = y + waveLength;
+
+			// Tangents: create a sine-like wave vertically
+			int tx0 = waveHeight;
+			int ty0 = 0;
+			int tx1 = -waveHeight;
+			int ty1 = 0;
+
+			HermiteCurve::Draw(hdc, x0, y0, x1, y1, tx0, ty0, tx1, ty1, c);
+		}
+	}
+}
