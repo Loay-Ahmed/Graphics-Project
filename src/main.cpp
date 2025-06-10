@@ -50,6 +50,8 @@ enum MenuShapeType {
     SHAPE_POINT,                     // Single point drawing mode
     SHAPE_EXTRA_QUARTER_CIRCLES,     // Extra: Quarter circles filling mode
     SHAPE_EXTRA_RECT_BEZIER_WAVES,   // Extra: Rectangle Bezier waves mode
+    SHAPE_EXTRA_CIRCLE_QUARTER,      // Extra: Circle quarter filling mode
+    SHAPE_EXTRA_SQUARE_HERMITE_WAVES  // Extra: Square Hermite waves mode
 };
 
 // ===== Drawing Algorithm Types =====
@@ -124,7 +126,23 @@ struct LayerRectangleBezierWaves {
     POINT p1, p2;
     COLORREF color;
 };
-using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill, LayerQuarterCircleFilling, LayerRectangleBezierWaves>;
+struct LayerCircleQuarter {
+    POINT center;
+    int radius;
+    int quarter;
+    COLORREF color;
+};
+struct LayerSquareHermiteWaves {
+    POINT topLeft;
+    int size;
+    COLORREF color;
+};
+// Add persistent Bezier curve layer
+struct LayerBezierCurve {
+    POINT p0, p1, p2, p3;
+    COLORREF color;
+};
+using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill, LayerQuarterCircleFilling, LayerRectangleBezierWaves, LayerCircleQuarter, LayerSquareHermiteWaves, LayerBezierCurve>;
 
 struct Layer {
     LayerShape shape;
@@ -151,6 +169,17 @@ static bool extraRectBezierActive = false;
 static int extraRectBezierStage = 0; // 0: none, 1: first corner set
 static POINT extraRectBezierP1 = {0,0};
 static POINT extraRectBezierP2 = {0,0};
+// Extra: state for circle quarter filling
+static bool extraCircleQuarterActive = false;
+static int extraCircleQuarterStage = 0; // 0: none, 1: center set, 2: radius set
+static POINT extraCircleQuarterCenter = {0,0};
+static int extraCircleQuarterRadius = 0;
+static int extraCircleQuarterQuarter = 1;
+// Extra: state for square Hermite waves
+static bool extraSquareHermiteActive = false;
+static int extraSquareHermiteStage = 0; // 0: none, 1: top-left set
+static POINT extraSquareHermiteTopLeft = {0,0};
+static int extraSquareHermiteSize = 0;
 
 // ===== Utility Functions =====
 // log_debug: writes debug messages to a file
@@ -249,6 +278,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         HMENU hExtraMenu = CreatePopupMenu();
         AppendMenu(hExtraMenu, MF_STRING, 10001, "Quarter Circles filling");
         AppendMenu(hExtraMenu, MF_STRING, 10002, "Rectangle Bezier Waves");
+        AppendMenu(hExtraMenu, MF_STRING, 10003, "Circle Quarter Fill");
+        AppendMenu(hExtraMenu, MF_STRING, 10004, "Square Hermite Waves");
         AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hExtraMenu, "Extra Draw Methods");
 
         // Color menu
@@ -340,14 +371,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     "- Use the 'Color' menu to change drawing color.\n"
                     "- Use 'Clear' to erase all.\n\n"
                     "Extra Draw Methods:\n"
-                    "- Quarter Circles filling: Select from menu, then:\n"
-                    "  1. Click to set the center of the circle.\n"
-                    "  2. Click to set the radius (distance from center).\n"
-                    "  3. Click inside the circle to select which quarter to fill (based on click position).\n"
-                    "     If you click outside the circle, an error is shown.\n"
-                    "- Rectangle Bezier Waves: Select from menu, then:\n"
-                    "  1. Click to set one corner of the rectangle.\n"
-                    "  2. Click to set the opposite corner. The rectangle and Bezier waves fill will be drawn.\n\n"
+                    "- Quarter Circles Filling: Click center, then radius point, then quarter.\n"
+                    "- Rectangle Bezier Waves: Click two corners, then two Bezier control points.\n"
+                    "- Circle Quarter Fill: Click center, then radius, then quarter.\n"
+                    "- Square Hermite Waves: Click top-left, then size, then two Hermite control points.\n"
+                    "- Spline/Bezier Curve: Click 4 points for control points. Curve is persistent and redrawn from layers.\n"
                     "Tip: Right-click cancels in-progress lines or polygons.\n\n"
                     "Note: Only lines, points, and (for rectangle window) polygons are clipped. Other shapes are ignored.",
                     "Manual / Help", MB_OK | MB_ICONINFORMATION);
@@ -389,6 +417,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 currentShape = SHAPE_EXTRA_RECT_BEZIER_WAVES;
                 extraRectBezierActive = true;
                 extraRectBezierStage = 0;
+                userPoints.clear();
+                currentPolygon.reset();
+            } else if (id == 10003) {
+                // Circle Quarter Fill: user will click 3 times (center, radius, quarter)
+                currentShape = SHAPE_EXTRA_CIRCLE_QUARTER;
+                extraCircleQuarterActive = true;
+                extraCircleQuarterStage = 0;
+                userPoints.clear();
+                currentPolygon.reset();
+            } else if (id == 10004) {
+                // Square Hermite Waves: user will click 2 times (top-left, size)
+                currentShape = SHAPE_EXTRA_SQUARE_HERMITE_WAVES;
+                extraSquareHermiteActive = true;
+                extraSquareHermiteStage = 0;
                 userPoints.clear();
                 currentPolygon.reset();
             }
@@ -582,11 +624,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             else if (currentShape == SHAPE_SPLINE) {
                 userPoints.push_back(POINT{x, y});
                 if (userPoints.size() == 4) {
-                    HDC hdc = GetDC(hWnd);
-                    ThirdDegreeCurve::BezierCurve(hdc, userPoints[0].x, userPoints[0].y, userPoints[1].x, userPoints[1].y,
-                        userPoints[2].x, userPoints[2].y, userPoints[3].x, userPoints[3].y, currentColor, currentColor, false);
+                    // Store as persistent layer instead of drawing directly
+                    layers.push_back(Layer{LayerBezierCurve{userPoints[0], userPoints[1], userPoints[2], userPoints[3], currentColor}});
                     userPoints.clear();
                     InvalidateRect(hWnd, NULL, TRUE);
+                } else {
+                    // Optionally, add preview logic here (draw preview in WM_PAINT if userPoints.size() < 4)
+                    InvalidateRect(hWnd, NULL, FALSE);
                 }
             }
             // Handle filling
@@ -659,6 +703,61 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     layers.push_back(Layer{LayerRectangleBezierWaves{extraRectBezierP1, extraRectBezierP2, currentColor}});
                     extraRectBezierActive = false;
                     extraRectBezierStage = 0;
+                    InvalidateRect(hWnd, NULL, TRUE);
+                }
+                break;
+            }
+            // Extra: Circle Quarter Fill (3 clicks: center, radius, quarter)
+            if (currentShape == SHAPE_EXTRA_CIRCLE_QUARTER && extraCircleQuarterActive) {
+                if (extraCircleQuarterStage == 0) {
+                    extraCircleQuarterCenter = {x, y};
+                    extraCircleQuarterStage = 1;
+                } else if (extraCircleQuarterStage == 1) {
+                    int dx = x - extraCircleQuarterCenter.x;
+                    int dy = y - extraCircleQuarterCenter.y;
+                    extraCircleQuarterRadius = (int)hypot(dx, dy);
+                    extraCircleQuarterStage = 2;
+                    InvalidateRect(hWnd, NULL, TRUE);
+                } else if (extraCircleQuarterStage == 2) {
+                    int dx = x - extraCircleQuarterCenter.x;
+                    int dy = y - extraCircleQuarterCenter.y;
+                    int dist = (int)hypot(dx, dy);
+                    if (dist > extraCircleQuarterRadius) {
+                        MessageBox(hWnd, "Error: Click is outside the circle boundary. Please click inside the circle to select a quarter.", "Quarter Selection Error", MB_OK | MB_ICONERROR);
+                        return 0;
+                    }
+                    int dy_inv = extraCircleQuarterCenter.y - y;
+                    if (dx >= 0 && dy_inv >= 0)
+                        extraCircleQuarterQuarter = 1;
+                    else if (dx < 0 && dy_inv >= 0)
+                        extraCircleQuarterQuarter = 2;
+                    else if (dx < 0 && dy_inv < 0)
+                        extraCircleQuarterQuarter = 3;
+                    else
+                        extraCircleQuarterQuarter = 4;
+                    layers.push_back(Layer{LayerCircleQuarter{extraCircleQuarterCenter, extraCircleQuarterRadius, extraCircleQuarterQuarter, currentColor}});
+                    extraCircleQuarterActive = false;
+                    extraCircleQuarterStage = 0;
+                    InvalidateRect(hWnd, NULL, TRUE);
+                }
+                break;
+            }
+            // Extra: Square Hermite Waves (2 clicks: top-left, size)
+            if (currentShape == SHAPE_EXTRA_SQUARE_HERMITE_WAVES && extraSquareHermiteActive) {
+                if (extraSquareHermiteStage == 0) {
+                    extraSquareHermiteTopLeft = {x, y};
+                    extraSquareHermiteStage = 1;
+                } else if (extraSquareHermiteStage == 1) {
+                    int dx = x - extraSquareHermiteTopLeft.x;
+                    int dy = y - extraSquareHermiteTopLeft.y;
+                    int size = max(abs(dx), abs(dy));
+                    if (size == 0) {
+                        MessageBox(hWnd, "Error: Size must be greater than zero.", "Square Size Error", MB_OK | MB_ICONERROR);
+                        return 0;
+                    }
+                    layers.push_back(Layer{LayerSquareHermiteWaves{extraSquareHermiteTopLeft, size, currentColor}});
+                    extraSquareHermiteActive = false;
+                    extraSquareHermiteStage = 0;
                     InvalidateRect(hWnd, NULL, TRUE);
                 }
                 break;
@@ -828,6 +927,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         DrawPolygon(hdc, std::vector<POINT>(rectPoints, rectPoints + 5), shape.color);
                         // Fill with Bezier waves
                         Filling::FillRectangleWithBezierWaves(hdc, shape.p1.x, shape.p1.y, shape.p2.x, shape.p2.y, shape.color);
+                    } else if constexpr (std::is_same_v<T, LayerCircleQuarter>) {
+                        SecondDegreeCurve::BresenhamCircle(hdc, shape.center.x, shape.center.y, shape.radius, shape.color);
+                        Filling::FillCircleQuarter(hdc, shape.center.x, shape.center.y, shape.radius, shape.quarter, shape.color);
+                    } else if constexpr (std::is_same_v<T, LayerSquareHermiteWaves>) {
+                        // Draw square boundary
+                        POINT pts[5] = {
+                            shape.topLeft,
+                            {shape.topLeft.x + shape.size, shape.topLeft.y},
+                            {shape.topLeft.x + shape.size, shape.topLeft.y + shape.size},
+                            {shape.topLeft.x, shape.topLeft.y + shape.size},
+                            shape.topLeft
+                        };
+                        DrawPolygon(hdc, std::vector<POINT>(pts, pts + 5), shape.color);
+                        Filling::FillSquareWithVerticalHermiteWaves(hdc, shape.topLeft.x, shape.topLeft.y, shape.size, shape.color);
+                    } else if constexpr (std::is_same_v<T, LayerBezierCurve>) {
+                        ThirdDegreeCurve::BezierCurve(hdc, shape.p0.x, shape.p0.y, shape.p1.x, shape.p1.y, shape.p2.x, shape.p2.y, shape.p3.x, shape.p3.y, shape.color);
                     }
                 }, layer.shape);
             }
@@ -872,6 +987,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 GetCursorPos(&mouse);
                 ScreenToClient(hWnd, &mouse);
                 Rectangle(hdc, extraRectBezierP1.x, extraRectBezierP1.y, mouse.x, mouse.y);
+                SelectObject(hdc, oldPen);
+                DeleteObject(hPen);
+            }
+            // Draw preview for circle quarter (after radius, before quarter selection)
+            if (currentShape == SHAPE_EXTRA_CIRCLE_QUARTER && extraCircleQuarterActive && extraCircleQuarterStage == 2) {
+                // Draw the circle boundary using midpoint
+                SecondDegreeCurve::BresenhamCircle(hdc, extraCircleQuarterCenter.x, extraCircleQuarterCenter.y, extraCircleQuarterRadius, currentColor);
+            }
+            // Draw preview for square (after top-left, before size)
+            if (currentShape == SHAPE_EXTRA_SQUARE_HERMITE_WAVES && extraSquareHermiteActive && extraSquareHermiteStage == 1) {
+                HPEN hPen = CreatePen(PS_DOT, 1, currentColor);
+                HGDIOBJ oldPen = SelectObject(hdc, hPen);
+                POINT mouse;
+                GetCursorPos(&mouse);
+                ScreenToClient(hWnd, &mouse);
+                int size = max(abs(mouse.x - extraSquareHermiteTopLeft.x), abs(mouse.y - extraSquareHermiteTopLeft.y));
+                Rectangle(hdc, extraSquareHermiteTopLeft.x, extraSquareHermiteTopLeft.y, extraSquareHermiteTopLeft.x + size, extraSquareHermiteTopLeft.y + size);
                 SelectObject(hdc, oldPen);
                 DeleteObject(hPen);
             }

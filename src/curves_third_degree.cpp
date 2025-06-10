@@ -3,7 +3,7 @@
 #include <vector>
 using namespace std;
 
-void ThirdDegreeCurve::HermiteCurve(HDC hdc, int x1, int y1, int u1, int v1, int x2, int y2, int u2, int v2, COLORREF c1, COLORREF c2) {
+void ThirdDegreeCurve::HermiteCurve(HDC hdc, int x1, int y1, int u1, int v1, int x2, int y2, int u2, int v2, COLORREF c) {
     vector<vector<int>> H = {
         {2, -2, 1, 1},
         {-3, 3, -2, -1},
@@ -18,12 +18,11 @@ void ThirdDegreeCurve::HermiteCurve(HDC hdc, int x1, int y1, int u1, int v1, int
         double t3 = t2 * t;
         int x = Common::Round(Cx[0] * t3 + Cx[1] * t2 + Cx[2] * t + Cx[3]);
         int y = Common::Round(Cy[0] * t3 + Cy[1] * t2 + Cy[2] * t + Cy[3]);
-        COLORREF c = Common::interpolateColors(c1, c2, t);
         SetPixel(hdc, x, y, c);
     }
 }
 
-void ThirdDegreeCurve::BezierCurve(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, COLORREF c1, COLORREF c2, bool interpolate) {
+void ThirdDegreeCurve::BezierCurve(HDC hdc, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4, COLORREF c) {
     vector<vector<int>> H = {
         {-1, 3, -3, 1},
         {3, -6, 3, 0},
@@ -38,8 +37,7 @@ void ThirdDegreeCurve::BezierCurve(HDC hdc, int x1, int y1, int x2, int y2, int 
         double t3 = t2 * t;
         int x = Common::Round(Cx[0] * t3 + Cx[1] * t2 + Cx[2] * t + Cx[3]);
         int y = Common::Round(Cy[0] * t3 + Cy[1] * t2 + Cy[2] * t + Cy[3]);
-        COLORREF c = Common::interpolateColors(c1, c2, t);
-        SetPixel(hdc, x, y, interpolate ? c : c1);
+        SetPixel(hdc, x, y, c);
     }
 }
 

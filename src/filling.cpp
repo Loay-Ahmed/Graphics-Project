@@ -237,7 +237,7 @@ void Filling::FillQuarterWithSmallCircles(HDC hdc, int xc, int yc, int R, int qu
                 int x4 = x + waveLength;
                 int y4 = y;
 
-                ThirdDegreeCurve::BezierCurve(hdc, x1, y1, x2, y2, x3, y3, x4, y4, c, c, false);
+                ThirdDegreeCurve::BezierCurve(hdc, x1, y1, x2, y2, x3, y3, x4, y4, c);
             }
         }
     }
@@ -284,3 +284,33 @@ void Filling::FillQuarterWithSmallCircles(HDC hdc, int xc, int yc, int R, int qu
             Lines::LineBresenhamDDA(hdc, xc, yc, xEnd, yEnd, c);
         }
     }
+
+    void Filling::FillSquareWithVerticalHermiteWaves(HDC hdc, int left, int top, int size, COLORREF c)
+{
+	int waveHeight = 15;  // Amplitude
+	int waveLength = 40;  // Vertical wave cycle
+	int stepX = 6;        // Horizontal step for density
+
+	int right = left + size;
+	int bottom = top + size;
+
+	for (int x = left; x <= right; x += stepX)
+	{
+		for (int y = top; y < bottom; y += waveLength)
+		{
+			// Hermite curve needs two points and two tangents
+			int x0 = x;
+			int y0 = y;
+			int x1 = x;
+			int y1 = y + waveLength;
+
+			// Tangents: create a sine-like wave vertically
+			int tx0 = waveHeight;
+			int ty0 = 0;
+			int tx1 = -waveHeight;
+			int ty1 = 0;
+
+			ThirdDegreeCurve::HermiteCurve(hdc, x0, y0, tx0, ty0, x1, y1, tx1, ty1, c);
+		}
+	}
+}

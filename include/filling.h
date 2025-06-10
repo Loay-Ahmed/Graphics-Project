@@ -36,6 +36,8 @@ public:
     // --- Extra menu ---
     static void FillQuarterWithSmallCircles(HDC hdc, int xc, int yc, int R, int quarter, COLORREF c);
     static void FillRectangleWithBezierWaves(HDC hdc, int left, int top, int right, int bottom, COLORREF c);
+    static void FillCircleQuarter(HDC hdc, int xc, int yc, int radius, int quarter, COLORREF c);
+    static void FillSquareWithVerticalHermiteWaves(HDC hdc, int left, int top, int size, COLORREF c);
 
 private:
     // Edge table structures
