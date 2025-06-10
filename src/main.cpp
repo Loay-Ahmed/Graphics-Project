@@ -175,10 +175,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         AppendMenu(hEllipseMenu, MF_STRING, 5003, "Midpoint");
         AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hEllipseMenu, "Ellipse Algorithm");
 
-        // Color menu
-        HMENU hColorMenu = CreatePopupMenu();
-        AppendMenu(hColorMenu, MF_STRING, 6001, "Choose Color");
-        AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hColorMenu, "Color");
 
         // Clipping window type menu
         HMENU hClipTypeMenu = CreatePopupMenu();
@@ -194,10 +190,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         AppendMenu(hFillMenu, MF_STRING, 9004, "Non-Convex Fill");
         AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFillMenu, "Fill Algorithm");
 
+        // extra menu
+        HMENU hExtraMenu = CreatePopupMenu();
+        AppendMenu(hExtraMenu, MF_STRING, 10001, "Quarter Small Circles");
+        AppendMenu(hExtraMenu, MF_STRING, 10002, "Rectangle Bezier Waves");
+        AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hExtraMenu, "Extra Draw Methods");
+
+        // Color menu
+        HMENU hColorMenu = CreatePopupMenu();
+        AppendMenu(hColorMenu, MF_STRING, 6001, "Choose Color");
+        AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hColorMenu, "Color");
+    
         // Help menu
         HMENU hHelpMenu = CreatePopupMenu();
         AppendMenu(hHelpMenu, MF_STRING, 7001, "Manual / Help");
         AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hHelpMenu, "Help");
+
 
         SetMenu(hWnd, hMenuBar);
     }
@@ -302,6 +310,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Filling algorithm handlers
             else if (id >= 9001 && id <= 9004) {
                 currentFillAlg = (FillAlgorithm)(id - 9001);
+            }
+            // Extra Draw Methods
+            if (id == 10001) {
+                // Example: Draw quarter with small circles at center (300,300), R=100, quarter=1
+                HDC hdc = GetDC(hWnd);
+                Filling::FillQuarterWithSmallCircles(hdc, 300, 300, 100, 1, RGB(255,0,0));
+                ReleaseDC(hWnd, hdc);
+            } else if (id == 10002) {
+                // Example: Draw rectangle with Bezier waves
+                HDC hdc = GetDC(hWnd);
+                Filling::FillRectangleWithBezierWaves(hdc, 100, 100, 400, 300, RGB(0,0,255));
+                ReleaseDC(hWnd, hdc);
             }
         }
         break;

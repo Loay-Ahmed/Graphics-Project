@@ -1,6 +1,8 @@
 #include "../include/filling.h"
 #include "../include/common.h"
 #include "../include/lines.h"
+#include "../include/curves_second_degree.h"
+#include "../include/curves_third_degree.h"
 #include <cmath>
 using namespace std;
 
@@ -176,3 +178,66 @@ void Filling::NonConvexFill(HDC hdc, const vector<Point>& points, COLORREF color
 void Filling::NonConvexFill(HDC hdc, const vector<POINT>& points, COLORREF color) {
     NonConvexFill(hdc, ConvertToPoints(points), color);
 }
+
+
+
+void Filling::FillQuarterWithSmallCircles(HDC hdc, int xc, int yc, int R, int quarter, COLORREF c)
+    {
+        const int maxRadius = 4;
+        const int minRadius = 1;
+
+        for (int y = -R; y <= R; y += 2 * maxRadius)
+        {
+            for (int x = -R; x <= R; x += 2 * maxRadius)
+            {
+                double distSquared = x * x + y * y;
+                if (distSquared <= R * R)
+                {
+                    bool inQuarter = false;
+                    switch (quarter)
+                    {
+                        case 1: inQuarter = (x >= 0 && y <= 0); break;
+                        case 2: inQuarter = (x <= 0 && y <= 0); break;
+                        case 3: inQuarter = (x <= 0 && y >= 0); break;
+                        case 4: inQuarter = (x >= 0 && y >= 0); break;
+                    }
+
+                    if (inQuarter)
+                    {
+                        double dist = sqrt(distSquared);
+                        double ratio = dist / R;
+                        int rSmall = static_cast<int>(minRadius + (1.0 - ratio) * (maxRadius - minRadius));
+
+                        if (rSmall < 1) rSmall = 1;
+
+                        SecondDegreeCurve::BresenhamCircle(hdc, xc + x, yc + y, rSmall, c);
+                    }
+                }
+            }
+        }
+    }
+
+
+    void Filling::FillRectangleWithBezierWaves(HDC hdc, int left, int top, int right, int bottom, COLORREF c)
+    {
+        int waveHeight = 15;   // bigger amplitude to overlap vertically
+        int waveLength = 40;   // length of wave cycle
+        int stepY = 6;         // smaller vertical step for denser waves
+
+        for (int y = top; y <= bottom; y += stepY)
+        {
+            for (int x = left; x < right; x += waveLength)
+            {
+                int x1 = x;
+                int y1 = y;
+                int x2 = x + waveLength / 4;
+                int y2 = y - waveHeight;
+                int x3 = x + 3 * waveLength / 4;
+                int y3 = y + waveHeight;
+                int x4 = x + waveLength;
+                int y4 = y;
+
+                ThirdDegreeCurve::BezierCurve(hdc, x1, y1, x2, y2, x3, y3, x4, y4, c, c, false);
+            }
+        }
+    }

@@ -33,6 +33,10 @@ public:
     static void NonConvexFill(HDC hdc, const std::vector<Point>& points, COLORREF color);
     static void NonConvexFill(HDC hdc, const std::vector<POINT>& points, COLORREF color);
 
+    // --- Extra menu ---
+    static void FillQuarterWithSmallCircles(HDC hdc, int xc, int yc, int R, int quarter, COLORREF c);
+    static void FillRectangleWithBezierWaves(HDC hdc, int left, int top, int right, int bottom, COLORREF c);
+
 private:
     // Edge table structures
     struct ConvexEdgeTable {
@@ -56,4 +60,4 @@ private:
 
     // Utility methods
     static std::vector<Point> ConvertToPoints(const std::vector<POINT>& points);
-}; 
+};
