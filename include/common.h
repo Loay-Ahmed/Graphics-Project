@@ -16,4 +16,5 @@ public:
     static COLORREF interpolateColors(COLORREF c1, COLORREF c2, double t);
     static std::vector<int> matrixMult(std::vector<std::vector<int>> m1, std::vector<int> m2);
     static bool isValidPolygon(const std::vector<POINT>& points);
+    static bool IsConvex(const std::vector<POINT>& points);
 };

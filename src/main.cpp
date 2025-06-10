@@ -50,6 +50,7 @@ enum MenuShapeType {
 enum LineAlgorithm { LINE_DDA, LINE_MIDPOINT, LINE_PARAMETRIC };
 enum CircleAlgorithm { CIRCLE_DIRECT, CIRCLE_POLAR, CIRCLE_ITER_POLAR, CIRCLE_MIDPOINT, CIRCLE_MOD_MIDPOINT };
 enum EllipseAlgorithm { ELLIPSE_DIRECT, ELLIPSE_POLAR, ELLIPSE_MIDPOINT };
+enum FillAlgorithm { FILL_RECURSIVE_FLOOD, FILL_NONRECURSIVE_FLOOD, FILL_CONVEX, FILL_NONCONVEX };
 enum ClippingWindowType {
     CLIP_RECTANGLE,
     CLIP_SQUARE
@@ -71,6 +72,8 @@ static ClippingWindowType currentClipWindowType = CLIP_RECTANGLE;
 static COLORREF currentColor = RGB(0,0,0);
 static std::vector<POINT> userPoints;
 static std::vector<std::string> drawnShapes;
+static FillAlgorithm currentFillAlg = FILL_RECURSIVE_FLOOD;
+static std::optional<POINT> fillPoint;
 
 // ===== Layer System =====
 struct LayerLine { POINT p1, p2; COLORREF color; LineAlgorithm alg; };
@@ -182,6 +185,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         AppendMenu(hClipTypeMenu, MF_STRING, 8002, "Square Window");
         AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hClipTypeMenu, "Clipping Window Type");
 
+        // Filling algorithm menu
+        HMENU hFillMenu = CreatePopupMenu();
+        AppendMenu(hFillMenu, MF_STRING, 9001, "Recursive Flood Fill");
+        AppendMenu(hFillMenu, MF_STRING, 9002, "Non-Recursive Flood Fill");
+        AppendMenu(hFillMenu, MF_STRING, 9003, "Convex Fill");
+        AppendMenu(hFillMenu, MF_STRING, 9004, "Non-Convex Fill");
+        AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFillMenu, "Fill Algorithm");
+
         // Help menu
         HMENU hHelpMenu = CreatePopupMenu();
         AppendMenu(hHelpMenu, MF_STRING, 7001, "Manual / Help");
@@ -234,6 +245,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 clipWindowStart.reset();
                 clipWindowCurrent.reset();
             }
+            else if (id == 2008) { // Filling
+                currentShape = SHAPE_FILL;
+                userPoints.clear();
+                currentPolygon.reset();
+                linePreviewStart.reset();
+                linePreviewCurrent.reset();
+            }
             else if (id == 2009) { // Point
                 currentShape = SHAPE_POINT;
                 userPoints.clear();
@@ -280,6 +298,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Clipping window type handlers
             else if (id == 8001) { currentClipWindowType = CLIP_RECTANGLE; }
             else if (id == 8002) { currentClipWindowType = CLIP_SQUARE; }
+            // Filling algorithm handlers
+            else if (id >= 9001 && id <= 9004) {
+                currentFillAlg = (FillAlgorithm)(id - 9001);
+            }
         }
         break;
 
@@ -477,6 +499,63 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     userPoints.clear();
                     InvalidateRect(hWnd, NULL, TRUE);
                 }
+            }
+            // Handle filling
+            else if (currentShape == SHAPE_FILL) {
+                HDC hdc = GetDC(hWnd);
+                if (!layers.empty()) {
+                    Layer& lastLayer = layers.back();
+                    std::visit([&](auto&& shape) {
+                        using T = std::decay_t<decltype(shape)>;
+                        if constexpr (std::is_same_v<T, LayerPolygon>) {
+                            if (shape.pts.size() >= 3) {
+                                switch (currentFillAlg) {
+                                    case FILL_RECURSIVE_FLOOD:
+                                        Filling::RecursiveFloodFill(hdc, x, y, shape.color);
+                                        break;
+                                    case FILL_NONRECURSIVE_FLOOD:
+                                        Filling::NonRecursiveFloodFill(hdc, x, y, shape.color);
+                                        break;
+                                    case FILL_CONVEX:
+                                        if (Common::IsConvex(shape.pts)) {
+                                            Filling::ConvexFill(hdc, shape.pts, shape.color);
+                                        } else {
+                                            MessageBox(hWnd, "This polygon is not convex. Please use Non-Convex Fill or Flood Fill.", 
+                                                      "Invalid Fill Algorithm", MB_OK | MB_ICONWARNING);
+                                        }
+                                        break;
+                                    case FILL_NONCONVEX:
+                                        Filling::NonConvexFill(hdc, shape.pts, shape.color);
+                                        break;
+                                }
+                            }
+                        } else if constexpr (std::is_same_v<T, LayerCircle> || 
+                                           std::is_same_v<T, LayerEllipse> || 
+                                           std::is_same_v<T, LayerRect>) {
+                            // For these shapes, only flood fill is applicable
+                            if (currentFillAlg == FILL_RECURSIVE_FLOOD) {
+                                Filling::RecursiveFloodFill(hdc, x, y, shape.color);
+                            } else if (currentFillAlg == FILL_NONRECURSIVE_FLOOD) {
+                                Filling::NonRecursiveFloodFill(hdc, x, y, shape.color);
+                            } else {
+                                MessageBox(hWnd, "This shape only supports Flood Fill algorithms.", 
+                                          "Invalid Fill Algorithm", MB_OK | MB_ICONWARNING);
+                            }
+                        } else {
+                            MessageBox(hWnd, "This shape does not support filling.", 
+                                      "Invalid Shape", MB_OK | MB_ICONWARNING);
+                        }
+                    }, lastLayer.shape);
+                } else {
+                    // If no shape exists, fill the background
+                    if (currentFillAlg == FILL_RECURSIVE_FLOOD) {
+                        Filling::RecursiveFloodFill(hdc, x, y, RGB(255, 255, 255));
+                    } else if (currentFillAlg == FILL_NONRECURSIVE_FLOOD) {
+                        Filling::NonRecursiveFloodFill(hdc, x, y, RGB(255, 255, 255));
+                    }
+                }
+                ReleaseDC(hWnd, hdc);
+                InvalidateRect(hWnd, NULL, TRUE);
             }
         }
         break;

@@ -48,3 +48,39 @@ bool Common::isValidPolygon(const std::vector<POINT>& points) {
     }
     return true;
 }
+
+bool Common::IsConvex(const std::vector<POINT>& points) {
+    if (points.size() < 3) return false;
+
+    // Calculate cross products of consecutive edges
+    int n = points.size();
+    int sign = 0;  // 0 means we haven't determined the sign yet
+
+    for (int i = 0; i < n; i++) {
+        int j = (i + 1) % n;
+        int k = (i + 2) % n;
+
+        // Calculate vectors
+        int dx1 = points[j].x - points[i].x;
+        int dy1 = points[j].y - points[i].y;
+        int dx2 = points[k].x - points[j].x;
+        int dy2 = points[k].y - points[j].y;
+
+        // Calculate cross product
+        int cross = dx1 * dy2 - dy1 * dx2;
+
+        // Skip if cross product is zero (collinear points)
+        if (cross == 0) continue;
+
+        // Determine sign
+        if (sign == 0) {
+            sign = (cross > 0) ? 1 : -1;
+        }
+        // If sign changes, polygon is not convex
+        else if ((cross > 0 && sign < 0) || (cross < 0 && sign > 0)) {
+            return false;
+        }
+    }
+
+    return true;
+}
