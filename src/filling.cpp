@@ -241,3 +241,46 @@ void Filling::FillQuarterWithSmallCircles(HDC hdc, int xc, int yc, int R, int qu
             }
         }
     }
+
+    void Filling::FillCircleQuarter(HDC hdc, int xc, int yc, int radius, int quarter, COLORREF c)
+    {
+        // Clamp quarter input between 1 and 4
+        if (quarter < 1 || quarter > 4) return;
+
+        int startAngleDeg = 0, endAngleDeg = 0;
+
+        switch (quarter)
+        {
+            case 1: // top-right quarter (0 to 90 degrees)
+                startAngleDeg = 0;
+                endAngleDeg = 90;
+                break;
+            case 2: // top-left quarter (90 to 180 degrees)
+                startAngleDeg = 90;
+                endAngleDeg = 180;
+                break;
+            case 3: // bottom-left quarter (180 to 270 degrees)
+                startAngleDeg = 180;
+                endAngleDeg = 270;
+                break;
+            case 4: // bottom-right quarter (270 to 360 degrees)
+                startAngleDeg = 270;
+                endAngleDeg = 360;
+                break;
+        }
+
+        // Draw lines from center to circumference at small angle increments in the quarter
+        for (double angleDeg = startAngleDeg; angleDeg <= endAngleDeg; angleDeg += 0.5)
+        {
+            double angleRad = angleDeg * 3.14159265358979323846 / 180.0;
+
+            int xEnd = xc + (int)(radius * cos(angleRad));
+            int yEnd = yc - (int)(radius * sin(angleRad)); // y axis inverted in GDI
+
+            // Draw line from center to circumference point
+            // Use existing line drawing function or just SetPixel in a loop
+
+            // For simplicity, use your Lines::DrawLineByMidPoint or LineBresenhamDDA
+            Lines::LineBresenhamDDA(hdc, xc, yc, xEnd, yEnd, c);
+        }
+    }
