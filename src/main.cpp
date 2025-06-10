@@ -82,7 +82,8 @@ struct LayerEllipse { POINT center; int a, b; COLORREF color; EllipseAlgorithm a
 struct LayerRect { POINT p1, p2; COLORREF color; };
 struct LayerPolygon { std::vector<POINT> pts; COLORREF color; };
 struct LayerPoint { POINT pt; COLORREF color; };
-using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint>;
+struct LayerFill { POINT fillPoint; COLORREF color; FillAlgorithm alg; };
+using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill>;
 
 struct Layer {
     LayerShape shape;
@@ -502,59 +503,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             // Handle filling
             else if (currentShape == SHAPE_FILL) {
-                HDC hdc = GetDC(hWnd);
                 if (!layers.empty()) {
                     Layer& lastLayer = layers.back();
                     std::visit([&](auto&& shape) {
                         using T = std::decay_t<decltype(shape)>;
-                        if constexpr (std::is_same_v<T, LayerPolygon>) {
-                            if (shape.pts.size() >= 3) {
-                                switch (currentFillAlg) {
-                                    case FILL_RECURSIVE_FLOOD:
-                                        Filling::RecursiveFloodFill(hdc, x, y, shape.color);
-                                        break;
-                                    case FILL_NONRECURSIVE_FLOOD:
-                                        Filling::NonRecursiveFloodFill(hdc, x, y, shape.color);
-                                        break;
-                                    case FILL_CONVEX:
-                                        if (Common::IsConvex(shape.pts)) {
-                                            Filling::ConvexFill(hdc, shape.pts, shape.color);
-                                        } else {
-                                            MessageBox(hWnd, "This polygon is not convex. Please use Non-Convex Fill or Flood Fill.", 
-                                                      "Invalid Fill Algorithm", MB_OK | MB_ICONWARNING);
-                                        }
-                                        break;
-                                    case FILL_NONCONVEX:
-                                        Filling::NonConvexFill(hdc, shape.pts, shape.color);
-                                        break;
-                                }
-                            }
-                        } else if constexpr (std::is_same_v<T, LayerCircle> || 
-                                           std::is_same_v<T, LayerEllipse> || 
-                                           std::is_same_v<T, LayerRect>) {
-                            // For these shapes, only flood fill is applicable
-                            if (currentFillAlg == FILL_RECURSIVE_FLOOD) {
-                                Filling::RecursiveFloodFill(hdc, x, y, shape.color);
-                            } else if (currentFillAlg == FILL_NONRECURSIVE_FLOOD) {
-                                Filling::NonRecursiveFloodFill(hdc, x, y, shape.color);
-                            } else {
-                                MessageBox(hWnd, "This shape only supports Flood Fill algorithms.", 
-                                          "Invalid Fill Algorithm", MB_OK | MB_ICONWARNING);
-                            }
+                        if constexpr (std::is_same_v<T, LayerPolygon> || 
+                                    std::is_same_v<T, LayerRect> ||
+                                    std::is_same_v<T, LayerCircle> ||
+                                    std::is_same_v<T, LayerEllipse>) {
+                            // Add fill information to the layer
+                            layers.push_back(Layer{LayerFill{{x, y}, shape.color, currentFillAlg}});
                         } else {
                             MessageBox(hWnd, "This shape does not support filling.", 
                                       "Invalid Shape", MB_OK | MB_ICONWARNING);
                         }
                     }, lastLayer.shape);
-                } else {
-                    // If no shape exists, fill the background
-                    if (currentFillAlg == FILL_RECURSIVE_FLOOD) {
-                        Filling::RecursiveFloodFill(hdc, x, y, RGB(255, 255, 255));
-                    } else if (currentFillAlg == FILL_NONRECURSIVE_FLOOD) {
-                        Filling::NonRecursiveFloodFill(hdc, x, y, RGB(255, 255, 255));
-                    }
                 }
-                ReleaseDC(hWnd, hdc);
                 InvalidateRect(hWnd, NULL, TRUE);
             }
         }
@@ -646,6 +610,67 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         }
                     } else if constexpr (std::is_same_v<T, LayerPoint>) {
                         SetPixel(hdc, shape.pt.x, shape.pt.y, shape.color);
+                    } else if constexpr (std::is_same_v<T, LayerFill>) {
+                        // Find the previous layer to fill
+                        for (auto it = layers.begin(); it != layers.end(); ++it) {
+                            if (&(*it) == &layer) {
+                                if (it != layers.begin()) {
+                                    --it;  // Move to the previous layer
+                                    std::visit([&](auto&& prevShape) {
+                                        using P = std::decay_t<decltype(prevShape)>;
+                                        if constexpr (std::is_same_v<P, LayerPolygon>) {
+                                            if (prevShape.pts.size() >= 3) {
+                                                switch (shape.alg) {
+                                                    case FILL_RECURSIVE_FLOOD:
+                                                        Filling::RecursiveFloodFill(hdc, shape.fillPoint.x, shape.fillPoint.y, shape.color);
+                                                        break;
+                                                    case FILL_NONRECURSIVE_FLOOD:
+                                                        Filling::NonRecursiveFloodFill(hdc, shape.fillPoint.x, shape.fillPoint.y, shape.color);
+                                                        break;
+                                                    case FILL_CONVEX:
+                                                        if (Common::IsConvex(prevShape.pts)) {
+                                                            Filling::ConvexFill(hdc, prevShape.pts, shape.color);
+                                                        }
+                                                        break;
+                                                    case FILL_NONCONVEX:
+                                                        Filling::NonConvexFill(hdc, prevShape.pts, shape.color);
+                                                        break;
+                                                }
+                                            }
+                                        } else if constexpr (std::is_same_v<P, LayerRect>) {
+                                            std::vector<POINT> rectPoints = {
+                                                prevShape.p1,
+                                                {prevShape.p2.x, prevShape.p1.y},
+                                                prevShape.p2,
+                                                {prevShape.p1.x, prevShape.p2.y},
+                                                prevShape.p1
+                                            };
+                                            switch (shape.alg) {
+                                                case FILL_RECURSIVE_FLOOD:
+                                                    Filling::RecursiveFloodFill(hdc, shape.fillPoint.x, shape.fillPoint.y, shape.color);
+                                                    break;
+                                                case FILL_NONRECURSIVE_FLOOD:
+                                                    Filling::NonRecursiveFloodFill(hdc, shape.fillPoint.x, shape.fillPoint.y, shape.color);
+                                                    break;
+                                                case FILL_CONVEX:
+                                                    Filling::ConvexFill(hdc, rectPoints, shape.color);
+                                                    break;
+                                                case FILL_NONCONVEX:
+                                                    Filling::NonConvexFill(hdc, rectPoints, shape.color);
+                                                    break;
+                                            }
+                                        } else if constexpr (std::is_same_v<P, LayerCircle> || std::is_same_v<P, LayerEllipse>) {
+                                            if (shape.alg == FILL_RECURSIVE_FLOOD) {
+                                                Filling::RecursiveFloodFill(hdc, shape.fillPoint.x, shape.fillPoint.y, shape.color);
+                                            } else if (shape.alg == FILL_NONRECURSIVE_FLOOD) {
+                                                Filling::NonRecursiveFloodFill(hdc, shape.fillPoint.x, shape.fillPoint.y, shape.color);
+                                            }
+                                        }
+                                    }, it->shape);
+                                }
+                                break;
+                            }
+                        }
                     }
                 }, layer.shape);
             }
