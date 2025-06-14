@@ -54,9 +54,36 @@ vector<double> ThirdDegreeCurve::Bezier(vector<double> points, double t) {
     return Bezier(newPoints, t);
 }
 
-void ThirdDegreeCurve::RecBezier(HDC hdc, vector<double> points, COLORREF c1, COLORREF c2) {
+void ThirdDegreeCurve::RecBezier(HDC hdc, vector<double> points, COLORREF c) {
     for (double t = 0; t < 1; t += 0.00005) {
         vector<double> point = Bezier(points, t);
-        SetPixel(hdc, point[0], point[1], Common::interpolateColors(c1, c2, t));
+        SetPixel(hdc, point[0], point[1], c);
+    }
+}
+
+void ThirdDegreeCurve::CardinalSplines(HDC hdc, vector<double> points, int C, COLORREF color)
+{
+    int n = points.size() / 2;
+    if (n < 4) return; // Need at least 4 points
+
+    // Calculate tangents
+    vector<double> qx, qy;
+    for (int i = 0; i < n; i++) {
+        if (i == 0 || i == n - 1) {
+            qx.push_back(0);
+            qy.push_back(0);
+        } else {
+            qx.push_back(C * (points[2 * (i + 1)] - points[2 * (i - 1)]) / 2.0);
+            qy.push_back(C * (points[2 * (i + 1) + 1] - points[2 * (i - 1) + 1]) / 2.0);
+        }
+    }
+    // Draw Hermite curves between each pair of points
+    for (int i = 1; i < n - 2; i++) {
+        HermiteCurve(
+            hdc,
+            (int)points[2 * i], (int)points[2 * i + 1], (int)qx[i], (int)qy[i],
+            (int)points[2 * (i + 1)], (int)points[2 * (i + 1) + 1], (int)qx[i + 1], (int)qy[i + 1],
+            color
+        );
     }
 }

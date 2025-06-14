@@ -51,7 +51,8 @@ enum MenuShapeType {
     SHAPE_EXTRA_QUARTER_CIRCLES,     // Extra: Quarter circles filling mode
     SHAPE_EXTRA_RECT_BEZIER_WAVES,   // Extra: Rectangle Bezier waves mode
     SHAPE_EXTRA_CIRCLE_QUARTER,      // Extra: Circle quarter filling mode
-    SHAPE_EXTRA_SQUARE_HERMITE_WAVES  // Extra: Square Hermite waves mode
+    SHAPE_EXTRA_SQUARE_HERMITE_WAVES,  // Extra: Square Hermite waves mode
+    SHAPE_CARDINAL_SPLINE             // Cardinal Spline drawing mode
 };
 
 // ===== Drawing Algorithm Types =====
@@ -142,7 +143,13 @@ struct LayerBezierCurve {
     POINT p0, p1, p2, p3;
     COLORREF color;
 };
-using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill, LayerQuarterCircleFilling, LayerRectangleBezierWaves, LayerCircleQuarter, LayerSquareHermiteWaves, LayerBezierCurve>;
+// Add persistent Cardinal Spline layer
+typedef std::vector<double> CardinalSplinePoints;
+struct LayerCardinalSpline {
+    CardinalSplinePoints points;
+    COLORREF color;
+};
+using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill, LayerQuarterCircleFilling, LayerRectangleBezierWaves, LayerCircleQuarter, LayerSquareHermiteWaves, LayerBezierCurve, LayerCardinalSpline>;
 
 struct Layer {
     LayerShape shape;
@@ -205,6 +212,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     static int x1, y1, x2, y2;
     static vector<double> points;
     static int counter = 0;
+    static std::vector<double> cardinalSplinePoints; // Stores input points for Cardinal Spline
 
     switch (message)
     {
@@ -236,6 +244,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         AppendMenu(hShapeMenu, MF_STRING, 2007, "Clipping");
         AppendMenu(hShapeMenu, MF_STRING, 2008, "Filling");
         AppendMenu(hShapeMenu, MF_STRING, 2009, "Point");
+        AppendMenu(hShapeMenu, MF_STRING, 2010, "Cardinal Spline");
         AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hShapeMenu, "Draw Shape");
 
         // Algorithm menus
@@ -355,6 +364,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 linePreviewStart.reset();
                 linePreviewCurrent.reset();
             }
+            else if (id == 2010) { // Cardinal Spline menu item
+                currentShape = SHAPE_CARDINAL_SPLINE;
+                userPoints.clear();
+                cardinalSplinePoints.clear();
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
             // Help menu handler
             else if (id == 7001) {
                 MessageBox(hWnd,
@@ -363,7 +378,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     "- For lines: Left-click to set start, then end point.\n"
                     "- For polygons: Left-click to add points, right-click to finish.\n"
                     "- For circles/ellipses/rectangles: Left-click two points.\n"
-                    "- For curves: Select Hermite or Bezier, then click required control points.\n"
+                    "- For Bezier Spline: Select 'Spline', then left-click 4 control points.\n"
+                    "- For Cardinal Spline: Select 'Cardinal Spline', left-click to add as many points as you want (minimum 4), right-click to draw the spline.\n"
+                    "  If you right-click with fewer than 4 points, an error will be shown.\n"
+                    "  Small preview circles will appear at each point as you click.\n"
                     "- For clipping: Select 'Clipping', then left-click two corners of the window.\n"
                     "  Use the 'Clipping Window Type' menu to choose Rectangle or Square.\n"
                     "  Rectangle window supports line, point, and polygon clipping.\n"
@@ -372,12 +390,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     "- Use 'Clear' to erase all.\n\n"
                     "Extra Draw Methods:\n"
                     "- Quarter Circles Filling: Click center, then radius point, then quarter.\n"
-                    "- Rectangle Bezier Waves: Click two corners, then two Bezier control points.\n"
+                    "- Rectangle Bezier Waves: Click two corners.\n"
                     "- Circle Quarter Fill: Click center, then radius, then quarter.\n"
-                    "- Square Hermite Waves: Click top-left, then size, then two Hermite control points.\n"
-                    "- Spline/Bezier Curve: Click 4 points for control points. Curve is persistent and redrawn from layers.\n"
-                    "Tip: Right-click cancels in-progress lines or polygons.\n\n"
-                    "Note: Only lines, points, and (for rectangle window) polygons are clipped. Other shapes are ignored.",
+                    "- Square Hermite Waves: Click top-left, then size.\n",
                     "Manual / Help", MB_OK | MB_ICONINFORMATION);
             }
             // Algorithm menu handlers
@@ -633,6 +648,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     InvalidateRect(hWnd, NULL, FALSE);
                 }
             }
+            // Handle Cardinal Spline point input
+            else if (currentShape == SHAPE_CARDINAL_SPLINE) {
+                // Add the clicked point to the Cardinal Spline input vector
+                cardinalSplinePoints.push_back(x);
+                cardinalSplinePoints.push_back(y);
+                InvalidateRect(hWnd, NULL, FALSE);
+            }
             // Handle filling
             else if (currentShape == SHAPE_FILL) {
                 if (!layers.empty()) {
@@ -806,6 +828,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 userPoints.clear();
                 InvalidateRect(hWnd, NULL, TRUE);
             }
+            // Finish Cardinal Spline input
+            else if (currentShape == SHAPE_CARDINAL_SPLINE) {
+                // Only allow drawing if at least 4 points (8 values)
+                if (cardinalSplinePoints.size() < 8) {
+                    MessageBox(hWnd, "Cardinal Spline requires at least 4 points (8 clicks).", "Not enough points", MB_OK | MB_ICONERROR);
+                } else {
+                    // Store the spline as a persistent layer
+                    layers.push_back(Layer{LayerCardinalSpline{cardinalSplinePoints, currentColor}});
+                    cardinalSplinePoints.clear();
+                    InvalidateRect(hWnd, NULL, TRUE);
+                }
+            }
         }
         break;
     case WM_PAINT:
@@ -943,6 +977,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         Filling::FillSquareWithVerticalHermiteWaves(hdc, shape.topLeft.x, shape.topLeft.y, shape.size, shape.color);
                     } else if constexpr (std::is_same_v<T, LayerBezierCurve>) {
                         ThirdDegreeCurve::BezierCurve(hdc, shape.p0.x, shape.p0.y, shape.p1.x, shape.p1.y, shape.p2.x, shape.p2.y, shape.p3.x, shape.p3.y, shape.color);
+                    } else if constexpr (std::is_same_v<T, LayerCardinalSpline>) {
+                        if (shape.points.size() >= 8) {
+                            ThirdDegreeCurve::CardinalSplines(hdc, shape.points, 1, shape.color);
+                        }
                     }
                 }, layer.shape);
             }
@@ -1006,6 +1044,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 Rectangle(hdc, extraSquareHermiteTopLeft.x, extraSquareHermiteTopLeft.y, extraSquareHermiteTopLeft.x + size, extraSquareHermiteTopLeft.y + size);
                 SelectObject(hdc, oldPen);
                 DeleteObject(hPen);
+            }
+            // Draw preview for Cardinal Spline
+            if (currentShape == SHAPE_CARDINAL_SPLINE && cardinalSplinePoints.size() >= 2) {
+                // Draw small preview circles at each input point
+                for (size_t i = 0; i + 1 < cardinalSplinePoints.size(); i += 2) {
+                    int px = (int)cardinalSplinePoints[i];
+                    int py = (int)cardinalSplinePoints[i + 1];
+                    Ellipse(hdc, px - 3, py - 3, px + 3, py + 3);
+                }
+                // Only preview spline if at least 4 points
+                if (cardinalSplinePoints.size() >= 8) {
+                    ThirdDegreeCurve::CardinalSplines(hdc, cardinalSplinePoints, 1, currentColor);
+                }
             }
 
             EndPaint(hWnd, &ps);
