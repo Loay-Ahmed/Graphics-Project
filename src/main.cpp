@@ -310,8 +310,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             int id = LOWORD(wParam);
             // Handle menu commands for shape selection, color, algorithms, etc.
             // File menu handlers
-            if (id == 1001) { /* Save logic (not implemented) */ }
-            else if (id == 1002) { /* Load logic (not implemented) */ }
+            if (id == 1001) { // Save
+    Storage::saveToFile(layers);
+} else if (id == 1002) { // Load
+    Storage::loadFromFile(layers);
+    InvalidateRect(hWnd, NULL, TRUE);
+}
             else if (id == 1003) {
                 // Clear all layers and reset state
                 layers.clear();
