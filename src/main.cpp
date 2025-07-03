@@ -269,12 +269,46 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             int id = LOWORD(wParam);
             // Handle menu commands for shape selection, color, algorithms, etc.            // File menu handlers
             if (id == 1001) { // Save
-                Storage::saveLayersToFile(layers, "layers.txt");
-                MessageBox(hWnd, "Layers saved to layers.txt", "Save", MB_OK | MB_ICONINFORMATION);
+                // Show Save File dialog
+                char szFile[MAX_PATH] = "layers.txt";
+                OPENFILENAME ofn = {0};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = hWnd;
+                ofn.lpstrFile = szFile;
+                ofn.nMaxFile = sizeof(szFile);
+                ofn.lpstrFilter = "Text Files (*.txt)\0*.txt\0All Files (*.*)\0*.*\0";
+                ofn.nFilterIndex = 1;
+                ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+                if (GetSaveFileName(&ofn)) {
+                    if (Storage::saveLayersToFile(layers, szFile)) {
+                        MessageBox(hWnd, "Layers saved successfully!", "Save", MB_OK | MB_ICONINFORMATION);
+                    } else {
+                        MessageBox(hWnd, "Failed to save layers.", "Save Error", MB_OK | MB_ICONERROR);
+                    }
+                } else {
+                    // User cancelled
+                }
             } else if (id == 1002) { // Load
-                Storage::loadLayersFromFile(layers, "layers.txt");
-                InvalidateRect(hWnd, NULL, TRUE);
-                MessageBox(hWnd, "Layers loaded from layers.txt", "Load", MB_OK | MB_ICONINFORMATION);
+                // Show Open File dialog
+                char szFile[MAX_PATH] = "layers.txt";
+                OPENFILENAME ofn = {0};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = hWnd;
+                ofn.lpstrFile = szFile;
+                ofn.nMaxFile = sizeof(szFile);
+                ofn.lpstrFilter = "Text Files (*.txt)\0*.txt\0All Files (*.*)\0*.*\0";
+                ofn.nFilterIndex = 1;
+                ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+                if (GetOpenFileName(&ofn)) {
+                    if (Storage::loadLayersFromFile(layers, szFile)) {
+                        InvalidateRect(hWnd, NULL, TRUE);
+                        MessageBox(hWnd, "Layers loaded successfully!", "Load", MB_OK | MB_ICONINFORMATION);
+                    } else {
+                        MessageBox(hWnd, "Failed to load layers.", "Load Error", MB_OK | MB_ICONERROR);
+                    }
+                } else {
+                    // User cancelled
+                }
             }
             else if (id == 1003) {
                 // Clear all layers and reset state

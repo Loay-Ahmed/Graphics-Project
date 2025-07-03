@@ -17,7 +17,9 @@ class Storage
 public:
     // Simple drawing storage (for basic pixel-based drawings)
     static bool saveToFile();
+    static bool saveToFile(const std::string& path);
     static bool loadFromFile(HDC hdc);
+    static bool loadFromFile(HDC hdc, const std::string& path);
     
     // Canvas management
     static void clearCanvas(HWND hwnd);

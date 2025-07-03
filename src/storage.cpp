@@ -11,21 +11,24 @@
 
 // Implementation of Storage class methods
 // Handles saving/loading of drawings and layers, and canvas management
-bool Storage::saveToFile()
+// Save the current drawing (all pixels) to a file (with file path)
+bool Storage::saveToFile(const std::string& path)
 {
-    std::ofstream outFile("drawing.txt");
+    std::ofstream outFile(path);
     if (!outFile.is_open())
     {
-        std::cerr << "Error opening file: drawing.txt\n";
+        std::cerr << "Error opening file: " << path << "\n";
         return false;
-    }    for (const auto &pair : Common::drawings)
+    }
+    for (const auto &pair : Common::drawings)
     {
         outFile << pair.first.first << " " << pair.first.second << " " << pair.second << "\n";
     }
-
     outFile.close();
     return true;
 }
+// Overload for backward compatibility
+bool Storage::saveToFile() { return saveToFile("drawing.txt"); }
 
 // Clear the canvas and remove all drawings
 void Storage::clearCanvas(HWND hwnd)
@@ -48,33 +51,32 @@ void Storage::setCanvas(HDC hdc)
     }
 }
 
-// Load a drawing from file and update the canvas
-bool Storage::loadFromFile(HDC hdc)
+// Load a drawing from file and update the canvas (with file path)
+bool Storage::loadFromFile(HDC hdc, const std::string& path)
 {
-    std::ifstream inFile("drawing.txt");
+    std::ifstream inFile(path);
     if (!inFile.is_open())
     {
-        std::cerr << "Error reading file: drawing.txt\n";        return false;
+        std::cerr << "Error reading file: " << path << "\n";        return false;
     }
-
     std::string line;
     while (std::getline(inFile, line))
     {
         std::istringstream iss(line);
         int x, y;
         COLORREF color;
-
         if (iss >> x >> y >> color)
         {
             auto pos = std::make_pair(x, y);
             Common::drawings[pos] = color;
         }
     }
-
     inFile.close();
     setCanvas(hdc);
     return true;
 }
+// Overload for backward compatibility
+bool Storage::loadFromFile(HDC hdc) { return loadFromFile(hdc, "drawing.txt"); }
 
    
 
