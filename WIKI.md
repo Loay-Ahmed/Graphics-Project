@@ -5,6 +5,15 @@ This project is a Windows GDI-based interactive graphics application for drawing
 
 ---
 
+## Code Commenting & Documentation (2024 Update)
+
+- All major source files, especially `main.cpp` and `storage.cpp`, have been updated with improved comments for clarity and maintainability.
+- **Section headers** now clearly mark major parts of the code (e.g., Drawing Modes, Global State, Utility Functions, Main Entry Point).
+- **Function headers** and **inline comments** explain the purpose and logic of complex or non-obvious code blocks.
+- This makes it easier for new contributors and maintainers to understand, extend, or debug the codebase.
+
+---
+
 ## main.cpp Structure (Developer Guide)
 
 The `main.cpp` file is the core of the application. Here is its high-level structure to help with development and extension:
@@ -37,6 +46,21 @@ The `main.cpp` file is the core of the application. Here is its high-level struc
 
 - **Main Entry Point (`WinMain`):**
   - Registers the window class and starts the message loop.
+
+---
+
+## storage.cpp Structure (Developer Guide)
+
+- **Purpose:** Handles saving/loading of drawings and layers, and canvas management.
+- **Key Methods:**
+  - `saveToFile()`: Save the current drawing (all pixels) to a file.
+  - `clearCanvas(HWND hwnd)`: Clear the canvas and remove all drawings.
+  - `setCanvas(HDC hdc)`: Redraw the canvas from the stored drawings.
+  - `loadFromFile(HDC hdc)`: Load a drawing from file and update the canvas.
+  - `saveLayersToFile(const std::vector<Layer>&, const std::string&)`: Save all layers to a file for persistence.
+  - `loadLayersFromFile(std::vector<Layer>&, const std::string&)`: Load all layers from a file for persistence.
+- **Helpers:**
+  - `point_to_str`, `str_to_point`: Serialize/deserialize POINT structures for file I/O.
 
 ---
 

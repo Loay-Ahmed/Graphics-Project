@@ -9,6 +9,8 @@
 #include "../include/import.h"
 #include "../include/ellipse.h"
 #include "../include/clipping.h"
+#include "../include/storage.h"
+#include "../include/layer.h"
 #include <commdlg.h>
 #include <fstream>
 #include <sstream>
@@ -20,8 +22,8 @@
 using namespace std;
 
 // ===== Drawing Modes and Shape Types =====
-// DrawingMode: not used for menu, but for internal logic
-// MenuShapeType: used to track which shape/tool is currently active
+// DrawingMode: Internal logic for current drawing operation
+// MenuShapeType: Tracks which shape/tool is currently active from the menu
 enum DrawingMode {
     MODE_NONE,
     MODE_BEZIER_CURVE,
@@ -58,14 +60,7 @@ enum MenuShapeType {
 // ===== Drawing Algorithm Types =====
 // These enums define the algorithms used for drawing lines, circles, ellipses, and filling
 // They are used to select the appropriate algorithm based on user input or menu selection
-enum LineAlgorithm { LINE_DDA, LINE_MIDPOINT, LINE_PARAMETRIC };
-enum CircleAlgorithm { CIRCLE_DIRECT, CIRCLE_POLAR, CIRCLE_ITER_POLAR, CIRCLE_MIDPOINT, CIRCLE_MOD_MIDPOINT };
-enum EllipseAlgorithm { ELLIPSE_DIRECT, ELLIPSE_POLAR, ELLIPSE_MIDPOINT };
-enum FillAlgorithm { FILL_RECURSIVE_FLOOD, FILL_NONRECURSIVE_FLOOD, FILL_CONVEX, FILL_NONCONVEX };
-enum ClippingWindowType {
-    CLIP_RECTANGLE,
-    CLIP_SQUARE
-};
+// (Moved to common.h)
 
 //______________________________________________________
 // ============= Global State Variables ==============
@@ -115,45 +110,7 @@ static std::optional<POINT> fillPoint;
 // ===== Layer System =====
 // Each Layer struct represents a drawable object with its parameters and color
 // LayerShape is a variant holding any possible drawable type
-struct LayerLine { POINT p1, p2; COLORREF color; LineAlgorithm alg; };
-struct LayerCircle { POINT center; int r; COLORREF color; CircleAlgorithm alg; };
-struct LayerEllipse { POINT center; int a, b; COLORREF color; EllipseAlgorithm alg; };
-struct LayerRect { POINT p1, p2; COLORREF color; };
-struct LayerPolygon { std::vector<POINT> pts; COLORREF color; };
-struct LayerPoint { POINT pt; COLORREF color; };
-struct LayerFill { POINT fillPoint; COLORREF color; FillAlgorithm alg; };
-struct LayerQuarterCircleFilling { POINT center; int radius; int quarter; COLORREF color; };
-struct LayerRectangleBezierWaves {
-    POINT p1, p2;
-    COLORREF color;
-};
-struct LayerCircleQuarter {
-    POINT center;
-    int radius;
-    int quarter;
-    COLORREF color;
-};
-struct LayerSquareHermiteWaves {
-    POINT topLeft;
-    int size;
-    COLORREF color;
-};
-// Add persistent Bezier curve layer
-struct LayerBezierCurve {
-    POINT p0, p1, p2, p3;
-    COLORREF color;
-};
-// Add persistent Cardinal Spline layer
-typedef std::vector<double> CardinalSplinePoints;
-struct LayerCardinalSpline {
-    CardinalSplinePoints points;
-    COLORREF color;
-};
-using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill, LayerQuarterCircleFilling, LayerRectangleBezierWaves, LayerCircleQuarter, LayerSquareHermiteWaves, LayerBezierCurve, LayerCardinalSpline>;
-
-struct Layer {
-    LayerShape shape;
-};
+// using LayerShape = std::variant<LayerLine, LayerCircle, LayerEllipse, LayerRect, LayerPolygon, LayerPoint, LayerFill, LayerQuarterCircleFilling, LayerRectangleBezierWaves, LayerCircleQuarter, LayerSquareHermiteWaves, LayerBezierCurve, LayerCardinalSpline>;
 
 // ===== State Management =====
 // These variables track the current drawing state, previews, and extra modes
@@ -189,8 +146,8 @@ static POINT extraSquareHermiteTopLeft = {0,0};
 static int extraSquareHermiteSize = 0;
 
 // ===== Utility Functions =====
-// log_debug: writes debug messages to a file
-// DrawPolygon: draws a closed polygon using the midpoint line algorithm
+// log_debug: Writes debug messages to a file for troubleshooting
+// DrawPolygon: Draws a closed polygon using the midpoint line algorithm
 void log_debug(const std::string& msg) {
     std::ofstream log("clipping_debug.log", std::ios::app);
     log << msg << std::endl;
@@ -207,6 +164,8 @@ void DrawPolygon(HDC hdc, const std::vector<POINT>& points, COLORREF color) {
 }
 
 // ===== Window Procedure =====
+// Handles all Windows messages (menu commands, mouse/keyboard events, painting, etc.)
+// Main event loop for user interaction and drawing
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static int x1, y1, x2, y2;
@@ -308,14 +267,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
         {
             int id = LOWORD(wParam);
-            // Handle menu commands for shape selection, color, algorithms, etc.
-            // File menu handlers
+            // Handle menu commands for shape selection, color, algorithms, etc.            // File menu handlers
             if (id == 1001) { // Save
-    Storage::saveToFile(layers);
-} else if (id == 1002) { // Load
-    Storage::loadFromFile(layers);
-    InvalidateRect(hWnd, NULL, TRUE);
-}
+                Storage::saveLayersToFile(layers, "layers.txt");
+                MessageBox(hWnd, "Layers saved to layers.txt", "Save", MB_OK | MB_ICONINFORMATION);
+            } else if (id == 1002) { // Load
+                Storage::loadLayersFromFile(layers, "layers.txt");
+                InvalidateRect(hWnd, NULL, TRUE);
+                MessageBox(hWnd, "Layers loaded from layers.txt", "Load", MB_OK | MB_ICONINFORMATION);
+            }
             else if (id == 1003) {
                 // Clear all layers and reset state
                 layers.clear();
@@ -456,340 +416,324 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_LBUTTONDOWN:
-        {
-            int x = LOWORD(lParam);
-            int y = HIWORD(lParam);
-            // Handle all interactive drawing logic based on currentShape
-            // Handle clipping window creation
-            if (currentShape == SHAPE_CLIP) {
-                if (!clipWindowStart) {
-                    clipWindowStart = POINT{x, y};
-                    clipWindowCurrent = POINT{x, y};
-                } else {
-                    // Create clipping window from two points
-                    int x0 = clipWindowStart->x;
-                    int y0 = clipWindowStart->y;
-                    int x1 = x;
-                    int y1 = y;
+    {
+        int x = LOWORD(lParam);
+        int y = HIWORD(lParam);
+        // Handle all interactive drawing logic based on currentShape
+        // Handle clipping window creation
+        if (currentShape == SHAPE_CLIP) {
+            if (!clipWindowStart) {
+                clipWindowStart = POINT{x, y};
+                clipWindowCurrent = POINT{x, y};
+            } else {
+                // Create clipping window from two points
+                int x0 = clipWindowStart->x;
+                int y0 = clipWindowStart->y;
+                int x1 = x;
+                int y1 = y;
 
-                    // Calculate window boundaries
-                    int xmin = std::min(x0, x1);
-                    int xmax = std::max(x0, x1);
-                    int ymin = std::min(y0, y1);
-                    int ymax = std::max(y0, y1);
+                // Calculate window boundaries
+                int xmin = std::min(x0, x1);
+                int xmax = std::max(x0, x1);
+                int ymin = std::min(y0, y1);
+                int ymax = std::max(y0, y1);
 
-                    // Adjust for square window if needed
-                    if (currentClipWindowType == CLIP_SQUARE) {
-                        int dx = x1 - x0;
-                        int dy = y1 - y0;
-                        int side = max(abs(dx), abs(dy));
+                // Adjust for square window if needed
+                if (currentClipWindowType == CLIP_SQUARE) {
+                    int dx = x1 - x0;
+                    int dy = y1 - y0;
+                    int side = max(abs(dx), abs(dy));
 
-                        if (dx >= 0 && dy >= 0) { 
-                            xmax = x0 + side; ymax = y0 + side; 
-                        } else if (dx < 0 && dy >= 0) { 
-                            xmin = x0 - side; xmax = x0; ymax = y0 + side; 
-                        } else if (dx >= 0 && dy < 0) { 
-                            xmax = x0 + side; ymin = y0 - side; ymax = y0; 
-                        } else { 
-                            xmin = x0 - side; ymin = y0 - side; xmax = x0; ymax = y0; 
-                        }
+                    if (dx >= 0 && dy >= 0) { 
+                        xmax = x0 + side; ymax = y0 + side; 
+                    } else if (dx < 0 && dy >= 0) { 
+                        xmin = x0 - side; xmax = x0; ymax = y0 + side; 
+                    } else if (dx >= 0 && dy < 0) { 
+                        xmax = x0 + side; ymin = y0 - side; ymax = y0; 
+                    } else { 
+                        xmin = x0 - side; ymin = y0 - side; xmax = x0; ymax = y0; 
                     }
+                }
 
-                    // Set clipping window
-                    Clipping::SetClipWindow(xmin, ymin, xmax, ymax);
+                // Set clipping window
+                Clipping::SetClipWindow(xmin, ymin, xmax, ymax);
 
-                    // Only process the last layer if it exists
-                    if (!layers.empty()) {
-                        Layer& lastLayer = layers.back();
-                        std::visit([&](auto&& shape) {
-                            using T = std::decay_t<decltype(shape)>;
-                            if constexpr (std::is_same_v<T, LayerLine>) {
-                                // For lines, create a new clipped line
-                                int x1 = shape.p1.x, y1 = shape.p1.y;
-                                int x2 = shape.p2.x, y2 = shape.p2.y;
-                                int code1 = Clipping::computeCode(x1, y1);
-                                int code2 = Clipping::computeCode(x2, y2);
-                                bool accept = false;
-                                
-                                while (true) {
-                                    if ((code1 | code2) == 0) {
-                                        accept = true;
-                                        break;
-                                    } else if (code1 & code2) {
-                                        break;
-                                    } else {
-                                        int codeOut = code1 ? code1 : code2;
-                                        int x, y;
-                                        
-                                        if (codeOut & Clipping::TOP) {
-                                            x = x1 + (x2 - x1) * (Clipping::CLIP_Y_MAX - y1) / (y2 - y1);
-                                            y = Clipping::CLIP_Y_MAX;
-                                        } else if (codeOut & Clipping::BOTTOM) {
-                                            x = x1 + (x2 - x1) * (Clipping::CLIP_Y_MIN - y1) / (y2 - y1);
-                                            y = Clipping::CLIP_Y_MIN;
-                                        } else if (codeOut & Clipping::RIGHT) {
-                                            y = y1 + (y2 - y1) * (Clipping::CLIP_X_MAX - x1) / (x2 - x1);
-                                            x = Clipping::CLIP_X_MAX;
-                                        } else { // LEFT
-                                            y = y1 + (y2 - y1) * (Clipping::CLIP_X_MIN - x1) / (x2 - x1);
-                                            x = Clipping::CLIP_X_MIN;
-                                        }
-                                        
-                                        if (codeOut == code1) {
-                                            x1 = x; y1 = y; code1 = Clipping::computeCode(x1, y1);
-                                        } else {
-                                            x2 = x; y2 = y; code2 = Clipping::computeCode(x2, y2);
-                                        }
-                                    }
-                                }
-                                
-                                if (accept) {
-                                    layers.back() = Layer{LayerLine{{x1, y1}, {x2, y2}, shape.color, shape.alg}};
-                                } else {
-                                    layers.pop_back(); // Remove the line if it's completely outside
-                                }
-                            } else if constexpr (std::is_same_v<T, LayerPolygon>) {
-                                if (shape.pts.size() >= 3) {
-                                    std::vector<POINT> clipped = Clipping::SutherlandHodgmanClip(shape.pts.data(), (int)shape.pts.size());
-                                    if (clipped.size() >= 3) {
-                                        // Replace the last layer with the clipped version
-                                        layers.back() = Layer{LayerPolygon{clipped, shape.color}};
-                                    } else {
-                                        layers.pop_back(); // Remove the polygon if it's completely outside
-                                    }
-                                }
-                            } else if constexpr (std::is_same_v<T, LayerPoint>) {
-                                // For points, check if they're inside the clipping window
-                                if (shape.pt.x >= Clipping::CLIP_X_MIN && shape.pt.x <= Clipping::CLIP_X_MAX &&
-                                    shape.pt.y >= Clipping::CLIP_Y_MIN && shape.pt.y <= Clipping::CLIP_Y_MAX) {
-                                    // Point is inside, keep it as is
-                                } else {
-                                    // Point is outside, remove it
-                                    layers.pop_back();
-                                }
-                            }
-                        }, lastLayer.shape);
-                    }
-
-                    // Reset state
-                    userPoints.clear();
-                    clipWindowStart.reset();
-                    clipWindowCurrent.reset();
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-            }
-            // Handle polygon point addition
-            else if (currentShape == SHAPE_POLYGON) {
-                if (!currentPolygon) {
-                    currentPolygon = LayerPolygon{{}, currentColor};
-                }
-                currentPolygon->color = currentColor;
-                
-                POINT newPoint = {x, y};
-                std::vector<POINT> testPoints = currentPolygon->pts;
-                testPoints.push_back(newPoint);
-                
-                if (Common::isValidPolygon(testPoints)) {
-                    currentPolygon->pts.push_back(newPoint);
-                } else {
-                    MessageBox(hWnd, "This point is too close to existing points. Please choose a different point.", 
-                              "Invalid Point", MB_OK | MB_ICONWARNING);
-                }
-                InvalidateRect(hWnd, NULL, TRUE);
-            }
-            // Handle line drawing
-            else if (currentShape == SHAPE_LINE) {
-                if (!linePreviewStart) {
-                    linePreviewStart = POINT{x, y};
-                    linePreviewCurrent = POINT{x, y};
-                } else {
-                    layers.push_back(Layer{LayerLine{*linePreviewStart, POINT{x, y}, currentColor, currentLineAlg}});
-                    linePreviewStart.reset();
-                    linePreviewCurrent.reset();
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-            }
-            // Handle circle drawing
-            else if (currentShape == SHAPE_CIRCLE) {
-                userPoints.push_back(POINT{x, y});
-                if (userPoints.size() == 2) {
-                    int r = (int)hypot(userPoints[1].x - userPoints[0].x, userPoints[1].y - userPoints[0].y);
-                    layers.push_back(Layer{LayerCircle{userPoints[0], r, currentColor, currentCircleAlg}});
-                    userPoints.clear();
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-            }
-            // Handle ellipse drawing
-            else if (currentShape == SHAPE_ELLIPSE) {
-                userPoints.push_back(POINT{x, y});
-                if (userPoints.size() == 2) {
-                    int a = abs(userPoints[1].x - userPoints[0].x);
-                    int b = abs(userPoints[1].y - userPoints[0].y);
-                    layers.push_back(Layer{LayerEllipse{userPoints[0], a, b, currentColor, currentEllipseAlg}});
-                    userPoints.clear();
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-            }
-            // Handle rectangle drawing
-            else if (currentShape == SHAPE_RECT) {
-                userPoints.push_back(POINT{x, y});
-                if (userPoints.size() == 2) {
-                    layers.push_back(Layer{LayerRect{userPoints[0], userPoints[1], currentColor}});
-                    userPoints.clear();
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-            }
-            // Handle spline/curve drawing
-            else if (currentShape == SHAPE_SPLINE) {
-                userPoints.push_back(POINT{x, y});
-                if (userPoints.size() == 4) {
-                    // Store as persistent layer instead of drawing directly
-                    layers.push_back(Layer{LayerBezierCurve{userPoints[0], userPoints[1], userPoints[2], userPoints[3], currentColor}});
-                    userPoints.clear();
-                    InvalidateRect(hWnd, NULL, TRUE);
-                } else {
-                    // Optionally, add preview logic here (draw preview in WM_PAINT if userPoints.size() < 4)
-                    InvalidateRect(hWnd, NULL, FALSE);
-                }
-            }
-            // Handle Cardinal Spline point input
-            else if (currentShape == SHAPE_CARDINAL_SPLINE) {
-                // Add the clicked point to the Cardinal Spline input vector
-                cardinalSplinePoints.push_back(x);
-                cardinalSplinePoints.push_back(y);
-                InvalidateRect(hWnd, NULL, FALSE);
-            }
-            // Handle filling
-            else if (currentShape == SHAPE_FILL) {
+                // Only process the last layer if it exists
                 if (!layers.empty()) {
                     Layer& lastLayer = layers.back();
                     std::visit([&](auto&& shape) {
                         using T = std::decay_t<decltype(shape)>;
-                        if constexpr (std::is_same_v<T, LayerPolygon> || 
-                                    std::is_same_v<T, LayerRect> ||
-                                    std::is_same_v<T, LayerCircle> ||
-                                    std::is_same_v<T, LayerEllipse>) {
-                            // Add fill information to the layer
-                            layers.push_back(Layer{LayerFill{{x, y}, shape.color, currentFillAlg}});
-                        } else {
-                            MessageBox(hWnd, "This shape does not support filling.", 
-                                      "Invalid Shape", MB_OK | MB_ICONWARNING);
+                        if constexpr (std::is_same_v<T, LayerLine>) {
+                            // For lines, create a new clipped line
+                            int x1 = shape.p1.x, y1 = shape.p1.y;
+                            int x2 = shape.p2.x, y2 = shape.p2.y;
+                            int code1 = Clipping::computeCode(x1, y1);
+                            int code2 = Clipping::computeCode(x2, y2);
+                            bool accept = false;
+                            
+                            while (true) {
+                                if ((code1 | code2) == 0) {
+                                    accept = true;
+                                    break;
+                                } else if (code1 & code2) {
+                                    break;
+                                } else {
+                                    int codeOut = code1 ? code1 : code2;
+                                    int cx, cy;
+                                    
+                                    if (codeOut & Clipping::TOP) {
+                                        cx = x1 + (x2 - x1) * (Clipping::CLIP_Y_MAX - y1) / (y2 - y1);
+                                        cy = Clipping::CLIP_Y_MAX;
+                                    } else if (codeOut & Clipping::BOTTOM) {
+                                        cx = x1 + (x2 - x1) * (Clipping::CLIP_Y_MIN - y1) / (y2 - y1);
+                                        cy = Clipping::CLIP_Y_MIN;
+                                    } else if (codeOut & Clipping::RIGHT) {
+                                        cy = y1 + (y2 - y1) * (Clipping::CLIP_X_MAX - x1) / (x2 - x1);
+                                        cx = Clipping::CLIP_X_MAX;
+                                    } else { // LEFT
+                                        cy = y1 + (y2 - y1) * (Clipping::CLIP_X_MIN - x1) / (x2 - x1);
+                                        cx = Clipping::CLIP_X_MIN;
+                                    }
+                                    
+                                    if (codeOut == code1) {
+                                        x1 = cx; y1 = cy; code1 = Clipping::computeCode(x1, y1);
+                                    } else {
+                                        x2 = cx; y2 = cy; code2 = Clipping::computeCode(x2, y2);
+                                    }
+                                }
+                            }
+                            
+                            if (accept) {
+                                layers.back() = Layer{LayerLine{{x1, y1}, {x2, y2}, shape.color, shape.alg}};
+                            } else {
+                                layers.pop_back(); // Remove the line if it's completely outside
+                            }
+                        } else if constexpr (std::is_same_v<T, LayerPolygon>) {
+                            if (shape.pts.size() >= 3) {
+                                std::vector<POINT> clipped = Clipping::SutherlandHodgmanClip(shape.pts.data(), (int)shape.pts.size());
+                                if (clipped.size() >= 3) {
+                                    layers.back() = Layer{LayerPolygon{clipped, shape.color}};
+                                } else {
+                                    layers.pop_back(); // Remove the polygon if it's completely outside
+                                }
+                            }
+                        } else if constexpr (std::is_same_v<T, LayerPoint>) {
+                            if (shape.pt.x >= Clipping::CLIP_X_MIN && shape.pt.x <= Clipping::CLIP_X_MAX &&
+                                shape.pt.y >= Clipping::CLIP_Y_MIN && shape.pt.y <= Clipping::CLIP_Y_MAX) {
+                                // Point is inside, keep it as is
+                            } else {
+                                layers.pop_back();
+                            }
                         }
                     }, lastLayer.shape);
                 }
+
+                // Reset state
+                userPoints.clear();
+                clipWindowStart.reset();
+                clipWindowCurrent.reset();
                 InvalidateRect(hWnd, NULL, TRUE);
             }
-            // Handle dynamic quarter circle filling
-            else if (currentShape == SHAPE_EXTRA_QUARTER_CIRCLES && extraQuarterCircleActive) {
-                if (extraQuarterStage == 0) {
-                    // First click: set center
-                    extraQuarterCenter = {x, y};
-                    extraQuarterStage = 1;
-                } else if (extraQuarterStage == 1) {
-                    // Second click: set radius
-                    int dx = x - extraQuarterCenter.x;
-                    int dy = y - extraQuarterCenter.y;
-                    extraQuarterRadius = (int)hypot(dx, dy);
-                    extraQuarterStage = 2;
-                    InvalidateRect(hWnd, NULL, TRUE); // Redraw to show preview
-                } else if (extraQuarterStage == 2) {
-                    // Third click: select quarter based on click position
-                    int dx = x - extraQuarterCenter.x;
-                    int dy = y - extraQuarterCenter.y;
-                    int dist = (int)hypot(dx, dy);
-                    if (dist > extraQuarterRadius) {
-                        MessageBox(hWnd, "Error: Click is outside the circle boundary. Please click inside the circle to select a quarter.", "Quarter Selection Error", MB_OK | MB_ICONERROR);
-                        return 0;
-                    }
-                    int dy_inv = extraQuarterCenter.y - y; // y axis inverted for quarter logic
-                    if (dx >= 0 && dy_inv >= 0)
-                        extraQuarterQuarter = 1; // top-right
-                    else if (dx < 0 && dy_inv >= 0)
-                        extraQuarterQuarter = 2; // top-left
-                    else if (dx < 0 && dy_inv < 0)
-                        extraQuarterQuarter = 3; // bottom-left
-                    else
-                        extraQuarterQuarter = 4; // bottom-right
-                    // Add as a new layer
-                    layers.push_back(Layer{LayerQuarterCircleFilling{extraQuarterCenter, extraQuarterRadius, extraQuarterQuarter, currentColor}});
-                    extraQuarterCircleActive = false;
-                    extraQuarterStage = 0;
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
+        }
+        // Handle polygon point addition
+        else if (currentShape == SHAPE_POLYGON) {
+            if (!currentPolygon) {
+                currentPolygon = LayerPolygon{{}, currentColor};
             }
-            // Handle dynamic rectangle Bezier waves
-            else if (currentShape == SHAPE_EXTRA_RECT_BEZIER_WAVES && extraRectBezierActive) {
-                if (extraRectBezierStage == 0) {
-                    // First click: set first corner
-                    extraRectBezierP1 = {x, y};
-                    extraRectBezierStage = 1;
-                } else if (extraRectBezierStage == 1) {
-                    // Second click: set opposite corner and create layer
-                    extraRectBezierP2 = {x, y};
-                    layers.push_back(Layer{LayerRectangleBezierWaves{extraRectBezierP1, extraRectBezierP2, currentColor}});
-                    extraRectBezierActive = false;
-                    extraRectBezierStage = 0;
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-                break;
+            currentPolygon->color = currentColor;
+            
+            POINT newPoint = {x, y};
+            std::vector<POINT> testPoints = currentPolygon->pts;
+            testPoints.push_back(newPoint);
+            
+            if (Common::isValidPolygon(testPoints)) {
+                currentPolygon->pts.push_back(newPoint);
+            } else {
+                MessageBox(hWnd, "This point is too close to existing points. Please choose a different point.", 
+                          "Invalid Point", MB_OK | MB_ICONWARNING);
             }
-            // Extra: Circle Quarter Fill (3 clicks: center, radius, quarter)
-            if (currentShape == SHAPE_EXTRA_CIRCLE_QUARTER && extraCircleQuarterActive) {
-                if (extraCircleQuarterStage == 0) {
-                    extraCircleQuarterCenter = {x, y};
-                    extraCircleQuarterStage = 1;
-                } else if (extraCircleQuarterStage == 1) {
-                    int dx = x - extraCircleQuarterCenter.x;
-                    int dy = y - extraCircleQuarterCenter.y;
-                    extraCircleQuarterRadius = (int)hypot(dx, dy);
-                    extraCircleQuarterStage = 2;
-                    InvalidateRect(hWnd, NULL, TRUE);
-                } else if (extraCircleQuarterStage == 2) {
-                    int dx = x - extraCircleQuarterCenter.x;
-                    int dy = y - extraCircleQuarterCenter.y;
-                    int dist = (int)hypot(dx, dy);
-                    if (dist > extraCircleQuarterRadius) {
-                        MessageBox(hWnd, "Error: Click is outside the circle boundary. Please click inside the circle to select a quarter.", "Quarter Selection Error", MB_OK | MB_ICONERROR);
-                        return 0;
-                    }
-                    int dy_inv = extraCircleQuarterCenter.y - y;
-                    if (dx >= 0 && dy_inv >= 0)
-                        extraCircleQuarterQuarter = 1;
-                    else if (dx < 0 && dy_inv >= 0)
-                        extraCircleQuarterQuarter = 2;
-                    else if (dx < 0 && dy_inv < 0)
-                        extraCircleQuarterQuarter = 3;
-                    else
-                        extraCircleQuarterQuarter = 4;
-                    layers.push_back(Layer{LayerCircleQuarter{extraCircleQuarterCenter, extraCircleQuarterRadius, extraCircleQuarterQuarter, currentColor}});
-                    extraCircleQuarterActive = false;
-                    extraCircleQuarterStage = 0;
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-                break;
-            }
-            // Extra: Square Hermite Waves (2 clicks: top-left, size)
-            if (currentShape == SHAPE_EXTRA_SQUARE_HERMITE_WAVES && extraSquareHermiteActive) {
-                if (extraSquareHermiteStage == 0) {
-                    extraSquareHermiteTopLeft = {x, y};
-                    extraSquareHermiteStage = 1;
-                } else if (extraSquareHermiteStage == 1) {
-                    int dx = x - extraSquareHermiteTopLeft.x;
-                    int dy = y - extraSquareHermiteTopLeft.y;
-                    int size = max(abs(dx), abs(dy));
-                    if (size == 0) {
-                        MessageBox(hWnd, "Error: Size must be greater than zero.", "Square Size Error", MB_OK | MB_ICONERROR);
-                        return 0;
-                    }
-                    layers.push_back(Layer{LayerSquareHermiteWaves{extraSquareHermiteTopLeft, size, currentColor}});
-                    extraSquareHermiteActive = false;
-                    extraSquareHermiteStage = 0;
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-                break;
+            InvalidateRect(hWnd, NULL, TRUE);
+        }
+        // Handle line drawing
+        else if (currentShape == SHAPE_LINE) {
+            if (!linePreviewStart) {
+                linePreviewStart = POINT{x, y};
+                linePreviewCurrent = POINT{x, y};
+            } else {
+                layers.push_back(Layer{LayerLine{*linePreviewStart, POINT{x, y}, currentColor, currentLineAlg}});
+                linePreviewStart.reset();
+                linePreviewCurrent.reset();
+                InvalidateRect(hWnd, NULL, TRUE);
             }
         }
-        break;
+        // Handle circle drawing
+        else if (currentShape == SHAPE_CIRCLE) {
+            userPoints.push_back(POINT{x, y});
+            if (userPoints.size() == 2) {
+                int r = (int)hypot(userPoints[1].x - userPoints[0].x, userPoints[1].y - userPoints[0].y);
+                layers.push_back(Layer{LayerCircle{userPoints[0], r, currentColor, currentCircleAlg}});
+                userPoints.clear();
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+        // Handle ellipse drawing
+        else if (currentShape == SHAPE_ELLIPSE) {
+            userPoints.push_back(POINT{x, y});
+            if (userPoints.size() == 2) {
+                int a = abs(userPoints[1].x - userPoints[0].x);
+                int b = abs(userPoints[1].y - userPoints[0].y);
+                layers.push_back(Layer{LayerEllipse{userPoints[0], a, b, currentColor, currentEllipseAlg}});
+                userPoints.clear();
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+        // Handle rectangle drawing
+        else if (currentShape == SHAPE_RECT) {
+            userPoints.push_back(POINT{x, y});
+            if (userPoints.size() == 2) {
+                layers.push_back(Layer{LayerRect{userPoints[0], userPoints[1], currentColor}});
+                userPoints.clear();
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+        // Handle spline/curve drawing
+        else if (currentShape == SHAPE_SPLINE) {
+            userPoints.push_back(POINT{x, y});
+            if (userPoints.size() == 4) {
+                layers.push_back(Layer{LayerBezierCurve{userPoints[0], userPoints[1], userPoints[2], userPoints[3], currentColor}});
+                userPoints.clear();
+                InvalidateRect(hWnd, NULL, TRUE);
+            } else {
+                InvalidateRect(hWnd, NULL, FALSE);
+            }
+        }
+        // Handle Cardinal Spline point input
+        else if (currentShape == SHAPE_CARDINAL_SPLINE) {
+            cardinalSplinePoints.push_back(x);
+            cardinalSplinePoints.push_back(y);
+            InvalidateRect(hWnd, NULL, FALSE);
+        }
+        // Handle filling
+        else if (currentShape == SHAPE_FILL) {
+            if (!layers.empty()) {
+                Layer& lastLayer = layers.back();
+                std::visit([&](auto&& shape) {
+                    using T = std::decay_t<decltype(shape)>;
+                    if constexpr (std::is_same_v<T, LayerPolygon> || 
+                                std::is_same_v<T, LayerRect> ||
+                                std::is_same_v<T, LayerCircle> ||
+                                std::is_same_v<T, LayerEllipse>) {
+                        layers.push_back(Layer{LayerFill{{x, y}, shape.color, currentFillAlg}});
+                    } else {
+                        MessageBox(hWnd, "This shape does not support filling.", 
+                                  "Invalid Shape", MB_OK | MB_ICONWARNING);
+                    }
+                }, lastLayer.shape);
+            }
+            InvalidateRect(hWnd, NULL, TRUE);
+        }
+        // Handle dynamic quarter circle filling
+        else if (currentShape == SHAPE_EXTRA_QUARTER_CIRCLES && extraQuarterCircleActive) {
+            if (extraQuarterStage == 0) {
+                extraQuarterCenter = {x, y};
+                extraQuarterStage = 1;
+            } else if (extraQuarterStage == 1) {
+                int dx = x - extraQuarterCenter.x;
+                int dy = y - extraQuarterCenter.y;
+                extraQuarterRadius = (int)hypot(dx, dy);
+                extraQuarterStage = 2;
+                InvalidateRect(hWnd, NULL, TRUE);
+            } else if (extraQuarterStage == 2) {
+                int dx = x - extraQuarterCenter.x;
+                int dy = y - extraQuarterCenter.y;
+                int dist = (int)hypot(dx, dy);
+                if (dist > extraQuarterRadius) {
+                    MessageBox(hWnd, "Error: Click is outside the circle boundary. Please click inside the circle to select a quarter.", "Quarter Selection Error", MB_OK | MB_ICONERROR);
+                    return 0;
+                }
+                int dy_inv = extraQuarterCenter.y - y;
+                if (dx >= 0 && dy_inv >= 0)
+                    extraQuarterQuarter = 1;
+                else if (dx < 0 && dy_inv >= 0)
+                    extraQuarterQuarter = 2;
+                else if (dx < 0 && dy_inv < 0)
+                    extraQuarterQuarter = 3;
+                else
+                    extraQuarterQuarter = 4;
+                layers.push_back(Layer{LayerQuarterCircleFilling{extraQuarterCenter, extraQuarterRadius, extraQuarterQuarter, currentColor}});
+                extraQuarterCircleActive = false;
+                extraQuarterStage = 0;
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+        // Handle dynamic rectangle Bezier waves
+        else if (currentShape == SHAPE_EXTRA_RECT_BEZIER_WAVES && extraRectBezierActive) {
+            if (extraRectBezierStage == 0) {
+                extraRectBezierP1 = {x, y};
+                extraRectBezierStage = 1;
+            } else if (extraRectBezierStage == 1) {
+                extraRectBezierP2 = {x, y};
+                layers.push_back(Layer{LayerRectangleBezierWaves{extraRectBezierP1, extraRectBezierP2, currentColor}});
+                extraRectBezierActive = false;
+                extraRectBezierStage = 0;
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+        // Extra: Circle Quarter Fill (3 clicks: center, radius, quarter)
+        if (currentShape == SHAPE_EXTRA_CIRCLE_QUARTER && extraCircleQuarterActive) {
+            if (extraCircleQuarterStage == 0) {
+                extraCircleQuarterCenter = {x, y};
+                extraCircleQuarterStage = 1;
+            } else if (extraCircleQuarterStage == 1) {
+                int dx = x - extraCircleQuarterCenter.x;
+                int dy = y - extraCircleQuarterCenter.y;
+                extraCircleQuarterRadius = (int)hypot(dx, dy);
+                extraCircleQuarterStage = 2;
+                InvalidateRect(hWnd, NULL, TRUE);
+            } else if (extraCircleQuarterStage == 2) {
+                int dx = x - extraCircleQuarterCenter.x;
+                int dy = y - extraCircleQuarterCenter.y;
+                int dist = (int)hypot(dx, dy);
+                if (dist > extraCircleQuarterRadius) {
+                    MessageBox(hWnd, "Error: Click is outside the circle boundary. Please click inside the circle to select a quarter.", "Quarter Selection Error", MB_OK | MB_ICONERROR);
+                    return 0;
+                }
+                int dy_inv = extraCircleQuarterCenter.y - y;
+                if (dx >= 0 && dy_inv >= 0)
+                    extraCircleQuarterQuarter = 1;
+                else if (dx < 0 && dy_inv >= 0)
+                    extraCircleQuarterQuarter = 2;
+                else if (dx < 0 && dy_inv < 0)
+                    extraCircleQuarterQuarter = 3;
+                else
+                    extraCircleQuarterQuarter = 4;
+                layers.push_back(Layer{LayerCircleQuarter{extraCircleQuarterCenter, extraCircleQuarterRadius, extraCircleQuarterQuarter, currentColor}});
+                extraCircleQuarterActive = false;
+                extraCircleQuarterStage = 0;
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+        // Extra: Square Hermite Waves (2 clicks: top-left, size)
+        if (currentShape == SHAPE_EXTRA_SQUARE_HERMITE_WAVES && extraSquareHermiteActive) {
+            if (extraSquareHermiteStage == 0) {
+                extraSquareHermiteTopLeft = {x, y};
+                extraSquareHermiteStage = 1;
+            } else if (extraSquareHermiteStage == 1) {
+                int dx = x - extraSquareHermiteTopLeft.x;
+                int dy = y - extraSquareHermiteTopLeft.y;
+                int size = max(abs(dx), abs(dy));
+                if (size == 0) {
+                    MessageBox(hWnd, "Error: Size must be greater than zero.", "Square Size Error", MB_OK | MB_ICONERROR);
+                    return 0;
+                }
+                layers.push_back(Layer{LayerSquareHermiteWaves{extraSquareHermiteTopLeft, size, currentColor}});
+                extraSquareHermiteActive = false;
+                extraSquareHermiteStage = 0;
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+    }
+    break;
     case WM_MOUSEMOVE:
         {
             int x = LOWORD(lParam);
@@ -814,7 +758,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     currentPolygon->pts.push_back(currentPolygon->pts.front());
                 }
                 
-                layers.push_back(Layer{*currentPolygon});
+                layers.push_back(Layer{LayerPolygon{*currentPolygon}});
                 originalPolygonLayer = *currentPolygon;
                 currentPolygon.reset();
                 InvalidateRect(hWnd, NULL, TRUE);
@@ -1082,6 +1026,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 // ===== Main Entry Point =====
+// Registers the window class, creates the main window, and starts the message loop
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
     // Register window class and create main window

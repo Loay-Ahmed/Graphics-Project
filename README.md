@@ -8,4 +8,9 @@ g++ src/*.cpp -I. -I./include -o GraphicsProject.exe -lgdi32 -luser32 -lcomdlg32
 -- Step 2 Run
 .\GraphicsProject.exe
 
+## Documentation Update (2024)
+- All major source files, especially `main.cpp` and `storage.cpp`, now feature improved comments and section headers.
+- Comments clarify the purpose of each section, function, and complex logic for easier maintenance and onboarding.
+- See `WIKI.md` for a detailed developer guide and code structure overview.
+
 

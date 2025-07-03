@@ -1,5 +1,6 @@
 #include "../include/common.h"
 #include <cmath>
+#include <map>
 
 int Common::Round(double x)
 {
@@ -84,3 +85,5 @@ bool Common::IsConvex(const std::vector<POINT>& points) {
 
     return true;
 }
+
+std::map<std::pair<int, int>, COLORREF> Common::drawings;
