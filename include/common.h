@@ -15,7 +15,13 @@ inline bool operator==(const POINT& a, const POINT& b) {
 // These enums define the algorithms used for drawing lines, circles, ellipses, and filling
 // They are used to select the appropriate algorithm based on user input or menu selection
 enum LineAlgorithm { LINE_DDA, LINE_MIDPOINT, LINE_PARAMETRIC };
-enum CircleAlgorithm { CIRCLE_DIRECT, CIRCLE_POLAR, CIRCLE_ITER_POLAR, CIRCLE_MIDPOINT, CIRCLE_MOD_MIDPOINT };
+enum CircleAlgorithm {
+    CIRCLE_DIRECT = 0,
+    CIRCLE_POLAR = 1,
+    CIRCLE_ITERATIVE_POLAR = 2,
+    CIRCLE_MIDPOINT = 3,
+    CIRCLE_MODIFIED_MIDPOINT = 4
+};
 enum EllipseAlgorithm { ELLIPSE_DIRECT, ELLIPSE_POLAR, ELLIPSE_MIDPOINT };
 enum FillAlgorithm { FILL_RECURSIVE_FLOOD, FILL_NONRECURSIVE_FLOOD, FILL_CONVEX, FILL_NONCONVEX };
 

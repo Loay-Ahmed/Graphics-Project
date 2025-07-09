@@ -12,6 +12,7 @@
 // Implementation of Storage class methods
 // Handles saving/loading of drawings and layers, and canvas management
 // Save the current drawing (all pixels) to a file (with file path)
+// Used by GUI file dialog to specify the file name
 bool Storage::saveToFile(const std::string& path)
 {
     std::ofstream outFile(path);
@@ -27,7 +28,7 @@ bool Storage::saveToFile(const std::string& path)
     outFile.close();
     return true;
 }
-// Overload for backward compatibility
+// Overload for backward compatibility (default file name)
 bool Storage::saveToFile() { return saveToFile("drawing.txt"); }
 
 // Clear the canvas and remove all drawings
@@ -52,6 +53,7 @@ void Storage::setCanvas(HDC hdc)
 }
 
 // Load a drawing from file and update the canvas (with file path)
+// Used by GUI file dialog to specify the file name
 bool Storage::loadFromFile(HDC hdc, const std::string& path)
 {
     std::ifstream inFile(path);
@@ -75,7 +77,7 @@ bool Storage::loadFromFile(HDC hdc, const std::string& path)
     setCanvas(hdc);
     return true;
 }
-// Overload for backward compatibility
+// Overload for backward compatibility (default file name)
 bool Storage::loadFromFile(HDC hdc) { return loadFromFile(hdc, "drawing.txt"); }
 
    

@@ -269,7 +269,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             int id = LOWORD(wParam);
             // Handle menu commands for shape selection, color, algorithms, etc.            // File menu handlers
             if (id == 1001) { // Save
-                // Show Save File dialog
+                // Show Save File dialog to let the user choose where to save layers
                 char szFile[MAX_PATH] = "layers.txt";
                 OPENFILENAME ofn = {0};
                 ofn.lStructSize = sizeof(ofn);
@@ -279,6 +279,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 ofn.lpstrFilter = "Text Files (*.txt)\0*.txt\0All Files (*.*)\0*.*\0";
                 ofn.nFilterIndex = 1;
                 ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+                // If the user selects a file, save the layers to that file
                 if (GetSaveFileName(&ofn)) {
                     if (Storage::saveLayersToFile(layers, szFile)) {
                         MessageBox(hWnd, "Layers saved successfully!", "Save", MB_OK | MB_ICONINFORMATION);
@@ -286,10 +287,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         MessageBox(hWnd, "Failed to save layers.", "Save Error", MB_OK | MB_ICONERROR);
                     }
                 } else {
-                    // User cancelled
+                    // User cancelled the dialog
                 }
             } else if (id == 1002) { // Load
-                // Show Open File dialog
+                // Show Open File dialog to let the user choose which file to load layers from
                 char szFile[MAX_PATH] = "layers.txt";
                 OPENFILENAME ofn = {0};
                 ofn.lStructSize = sizeof(ofn);
@@ -299,6 +300,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 ofn.lpstrFilter = "Text Files (*.txt)\0*.txt\0All Files (*.*)\0*.*\0";
                 ofn.nFilterIndex = 1;
                 ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+                // If the user selects a file, load the layers from that file
                 if (GetOpenFileName(&ofn)) {
                     if (Storage::loadLayersFromFile(layers, szFile)) {
                         InvalidateRect(hWnd, NULL, TRUE);
@@ -307,7 +309,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         MessageBox(hWnd, "Failed to load layers.", "Load Error", MB_OK | MB_ICONERROR);
                     }
                 } else {
-                    // User cancelled
+                    // User cancelled the dialog
                 }
             }
             else if (id == 1003) {
@@ -839,10 +841,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         else if (shape.alg == LINE_MIDPOINT)
                             Lines::DrawLineByMidPoint(hdc, shape.p1.x, shape.p1.y, shape.p2.x, shape.p2.y, shape.color);
                     } else if constexpr (std::is_same_v<T, LayerCircle>) {
-                        if (shape.alg == CIRCLE_POLAR)
+                        if (shape.alg == CIRCLE_DIRECT)
+                            SecondDegreeCurve::directcircle(hdc, shape.center.x, shape.center.y, shape.r, shape.color);
+                        else if (shape.alg == CIRCLE_POLAR)
                             SecondDegreeCurve::DrawCircle(hdc, shape.center.x, shape.center.y, shape.center.x + shape.r, shape.center.y, shape.color);
+                        else if (shape.alg == CIRCLE_ITERATIVE_POLAR)
+                            SecondDegreeCurve::itreativepolar(hdc, shape.center.x, shape.center.y, shape.r, shape.color);
                         else if (shape.alg == CIRCLE_MIDPOINT)
                             SecondDegreeCurve::BresenhamCircle(hdc, shape.center.x, shape.center.y, shape.r, shape.color);
+                        else if (shape.alg == CIRCLE_MODIFIED_MIDPOINT)
+                            SecondDegreeCurve::ModfiedBresenhamcircle(hdc, shape.center.x, shape.center.y, shape.r, shape.color);
                     } else if constexpr (std::is_same_v<T, LayerEllipse>) {
                         if (shape.alg == ELLIPSE_DIRECT)
                             Ellipse::DrawEllipseEquation(hdc, shape.center.x, shape.center.y, shape.a, shape.b, shape.color);
